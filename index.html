@@ -282,7 +282,8 @@ const PAT={
   lofi:{kick:P(0,10),snare:P(4,12),clap:P(),hat:P(2,6,10,14),ohat:P(),perc:P(7)},
   running:{kick:P(0,4,8,12),snare:P(),clap:P(4,12),hat:P(0,2,4,6,8,10,12,14),ohat:P(),perc:P()},
   country:{kick:P(0,8),snare:P(4,12),clap:P(),hat:P(0,2,4,6,8,10,12,14),ohat:P(),perc:P(2,6,10,14)}, // 트레인비트: 킥 1·3, 백비트 2·4, 탬버린 뒷박
-  kpop:{kick:P(0,4,8,12),snare:P(4,12),clap:P(4,12),hat:P(0,2,4,6,8,10,12,14),ohat:P(6,14),perc:P()}
+  kpop:{kick:P(0,4,8,12),snare:P(4,12),clap:P(4,12),hat:P(0,2,4,6,8,10,12,14),ohat:P(6,14),perc:P()},
+  retro:{kick:P(0,7,8),snare:P(4,12),clap:P(),hat:P(0,2,4,6,8,10,12,14),ohat:P(14),perc:P()} // 80s: 킥 당김(2박 뒤), 게이트 스네어 백비트
 };
 const GENRES=[
  {id:'lofi',name:'Lo-Fi',tempo:[70,86],swing:62,bass:'808',pad:true,lead:false,form:'lofi',
@@ -312,7 +313,11 @@ const GENRES=[
  {id:'kpop',name:'K-Pop',tempo:[116,134],swing:0,pad:true,lead:true,bass:'synth',form:'kpop',
    hint:'프리코러스가 차오르고 훅에서 터지는 구조 · 신스 브라스 스탭 코드 · 챈트형 반복 후크 · 댄스브레이크 · 차용화음(bVI·bVII) 스파이스.',
    chords:[['vi','IV','I','V'],['I','V','vi','IV'],['vi','bVI','bVII','I'],['vi','ii7','V','I']],
-   atmos:{riser:1,impact:1}}
+   atmos:{riser:1,impact:1}},
+ {id:'retro',name:'레트로 (80s·시티팝)',tempo:[96,126],swing:0,pad:true,lead:true,bass:'synth',form:'song',
+   hint:'80s 신스팝·시티팝: 게이트 스네어 백비트 · 16분 옥타브 베이스 · EP(로즈) 7th/M7 화성 · 왕도진행(IVM7-V-iii7-vi7) · 스퀘어 리드.',
+   chords:[['IVM7','V','iii7','vi7'],['IM7','vi7','ii7','V'],['ii7','V','IM7','vi7'],['vi','IV','I','V']],
+   atmos:{hiss:0.3}}
 ];
 const genreById=id=>GENRES.find(g=>g.id===id);
 const curGenre=()=>genreById(state.genre);
@@ -356,7 +361,10 @@ const GENRE_PROGS={
     ['I','IV','vi','V'],['IV','I','V','V'],['I','vi','IV','V'],['vi','V','IV','I']],
   kpop:[
     ['vi','IV','I','V'],['I','V','vi','IV'],['vi','bVI','bVII','I'],['vi','ii7','V','I'],
-    ['IM7','vi7','ii7','V'],['vi','IV','bVII','V'],['I','iii','vi','IV'],['vi','V','IV','V']]
+    ['IM7','vi7','ii7','V'],['vi','IV','bVII','V'],['I','iii','vi','IV'],['vi','V','IV','V']],
+  retro:[ // 시티팝·80s: 7th 중심, 왕도진행 포함
+    ['IVM7','V','iii7','vi7'],['IM7','vi7','ii7','V'],['ii7','V','IM7','vi7'],['IVM7','iii7','vi7','V'],
+    ['vi7','ii7','V','IM7'],['IM7','IVM7','iii7','vi7'],['vi','IV','I','V'],['IVM7','V','vi7','vi7']]
 };
 // 장르별 컬러링 규칙 (7th/9th vs add9/sus vs 단조 유지)
 function colorFor(id,t){
@@ -387,6 +395,11 @@ function colorFor(id,t){
   if(id==='kpop'){
     if(Math.random()>0.3)return t;
     if(up&&!/7|sus|add/.test(t))return t+(Math.random()<0.6?'add9':'sus4');
+    return t;
+  }
+  if(id==='retro'){                                          // 시티팝: 민짜 3화음이면 7th/9th로 살찌움
+    if(/7|add|sus/.test(t))return t;
+    if(Math.random()<0.6)return t+(up?(Math.random()<0.5?'M7':'add9'):'7');
     return t;
   }
   // trap: 단조 트라이어드 유지, 가끔만 m9 컬러
@@ -539,11 +552,13 @@ const STRUCT_CYCLES={
   country:[{p:3,first:1,s:[['Verse',8],['Hook',8]]},{p:2,first:1,s:[['Verse',8],['Verse',4],['Hook',8]]},
         {p:1,s:[['Verse',4],['Hook',8],['Hook',4]]}],
   kpop:[{p:3,first:1,s:[['Verse',8],['Build',4],['Hook',8]]},{p:1,s:[['Break',4],['Build',4],['Hook',8]]},
-        {p:1,first:1,s:[['Verse',8],['Build',4],['Hook',8],['Hook',4]]}]                     // 프리코러스는 훅 앞 불변
+        {p:1,first:1,s:[['Verse',8],['Build',4],['Hook',8],['Hook',4]]}],                    // 프리코러스는 훅 앞 불변
+  retro:[{p:3,first:1,s:[['Verse',8],['Hook',8]]},{p:2,first:1,s:[['Verse',8],['Hook',8],['Hook',4]]},
+        {p:1,s:[['Break',4],['Hook',8]]},{p:1,first:1,s:[['Verse',4],['Hook',8]]}]
 };
 const STRUCT_FINALE={ // 장르 관용 피날레 — 마지막 원소가 남은 마디를 흡수(확장 클라이맥스)
   edm:[['Build',4],['Drop',8]],kpop:[['Break',4],['Build',4],['Hook',8]],                    // 댄스브레이크→라스트 훅
-  country:[['Break',4],['Hook',8]],                                                          // 브릿지→라스트 코러스
+  country:[['Break',4],['Hook',8]],retro:[['Break',4],['Hook',8]],                           // 브릿지→라스트 코러스
   running:[['Hook',8]],default:[['Build',4],['Hook',8]]};
 /* ===== 시간 맞춤 구조 =====
    총 마디 = 목표초 ÷ (240/BPM). 템포는 불가침(케이던스) — 구조로만 맞춘다.
@@ -814,14 +829,18 @@ function genSongLead(tr,g,sec,start,en,rnd,HOOK){
           [[4,0,0.45],[7,0.5,0.45],[9,1,0.9],[7,2,0.45],[4,2.5,0.45],[2,3,0.9]],
           [[0,0,0.45],[2,0.5,0.45],[4,1,0.9],[4,2,0.45],[2,2.5,0.45],[0,3,0.9]],
           [[9,0,0.45],[7,0.5,0.45],[9,1,0.45],[12,1.5,0.9],[7,2.5,0.45],[4,3,0.9]]]
+        :g.id==='retro'?[ // 시티팝: 당김이 실린 노래하는 라인
+          [[9,0,0.45],[7,0.75,0.45],[4,1.5,0.9],[7,2.5,0.45],[9,3,0.9]],
+          [[4,0,0.45],[4,0.75,0.45],[7,1.5,0.45],[9,2,0.9],[7,3,0.9]],
+          [[12,0,0.45],[9,0.5,0.45],[7,1,0.9],[4,2,0.45],[2,2.5,0.45],[4,3,0.9]]]
         :[ // K-pop 챈트: 반복음 리듬 후크 + 당김
           [[0,0,0.4],[0,0.5,0.4],[0,1,0.4],[7,1.75,0.4],[7,2.25,0.4],[0,3,0.9]],
           [[4,0,0.4],[4,0.5,0.4],[7,1,0.4],[4,1.75,0.4],[2,2.5,0.4],[0,3,0.9]],
           [[7,0,0.4],[7,0.75,0.4],[9,1.5,0.4],[7,2,0.4],[4,2.75,0.4],[2,3.25,0.6]]];
       const sh=shapes[HOOK.shape%shapes.length].map(([d,rq,du])=>[du>=0.9?safeDeg(d,cpc):d,rq,du]);
-      sh.forEach(([deg,rq,d])=>tr.lead.push({t:t0+rq,dur:d,midi:r5+deg,vel:Math.round((country?84:90)+rnd()*8)}));
+      sh.forEach(([deg,rq,d])=>tr.lead.push({t:t0+rq,dur:d,midi:r5+deg,vel:Math.round((country?84:g.id==='retro'?82:90)+rnd()*8)}));
       if(lastCell)tr.lead.push({t:t0+4,dur:3.2,midi:r5,vel:Math.round(84+rnd()*6)});
-      else sh.slice(0,4).forEach(([deg,rq,d])=>tr.lead.push({t:t0+4+rq,dur:d,midi:r5+deg,vel:Math.round((country?76:82)+rnd()*7)}));
+      else sh.slice(0,4).forEach(([deg,rq,d])=>tr.lead.push({t:t0+4+rq,dur:d,midi:r5+deg,vel:Math.round((country?76:g.id==='retro'?74:82)+rnd()*7)}));
     } else if(en===4){ // 프리코러스: 상승
       tr.lead.push({t:t0,dur:6,midi:r5+safeDeg(PENT[Math.min(PENT.length-1,c)],cpc),vel:Math.round(66+c*4+rnd()*6)});
     } else { // 벌스: 절제
@@ -832,7 +851,7 @@ function genSongLead(tr,g,sec,start,en,rnd,HOOK){
 }
 function genLead(tr,g,sec,start,en,rnd,HOOK){
   const cb=sec.chordBars||1;HOOK=HOOK||{shape:0,riff:0,edm:0,up:true};
-  if(g.id==='country'||g.id==='kpop'){genSongLead(tr,g,sec,start,en,rnd,HOOK);return;}
+  if(g.id==='country'||g.id==='kpop'||g.id==='retro'){genSongLead(tr,g,sec,start,en,rnd,HOOK);return;}
   if(g.id!=='running'){ // EDM 톱라인 — 곡마다 고정된 리듬 모티프가 드롭마다 반복 (중독성)
     if(en<5)return;
     const RH=[[[0,0,0.9],[1,1,0.9],[2,2,0.9],[1,3,0.9]],
@@ -1019,6 +1038,14 @@ function arrange(){
                 if(s===10&&fifth)m=rb+7;                                          // 가끔 5음
                 if(s===14&&ap!=null)m=ap;                                         // 다음 코드 접근음
                 tr.bass.push({t:b0+s*0.25,dur:s===7?0.7:0.45,midi:m,vel:Math.round((s%4===0?96:s===7?90:80)*eScale*ramp+rnd()*5),synthB:true});});}}
+          else if(g.id==='retro'){ // 시티팝 펑크 베이스: 옥타브 + 고스트 + 당김, 2마디 그루브(빡빡↔숨)
+            const nxt=chordSymAt(si,bar+1),nc=nxt?chordFromSym(nxt):null;
+            let ap=null;if(nc&&nc.bass%12!==ch.bass%12){let tgt=nc.bass;while(Math.abs(tgt-ch.bass)>6)tgt+=tgt>ch.bass?-12:12;ap=approachTo(tgt,keyPc());}
+            const A=[[0,0,1,0.21],[2,12,0.8,0.21],[3,0,0.5,0.16],[6,12,0.9,0.4],[8,0,0.95,0.21],[10,12,0.8,0.21],[11,7,0.5,0.16],[13,12,0.9,0.4],[14,0,0.75,0.21]]; // 당김(6·13)·고스트(3·11)
+            const B=[[0,0,1,0.21],[2,12,0.8,0.21],[4,0,0.9,0.21],[6,12,0.8,0.21],[8,0,0.95,0.21],[10,12,0.8,0.21],[12,0,0.9,0.21],[14,12,0.8,0.21]];        // 숨 쉬는 마디
+            (bar%2===0?A:B).forEach(([e,iv,a,du])=>{let m=ch.bass+iv;
+              if(e>=14&&ap!=null)m=ap+(iv?12:0);
+              tr.bass.push({t:b0+e*0.25,dur:du,midi:m,vel:Math.round(88*a*eScale*ramp+rnd()*4),synthB:true});});}
           else if(g.id==='country'){ // 컨트리: 4분 루트-5도 교대 + 마디 끝 접근음
             const nxt=chordSymAt(si,bar+1),nc=nxt?chordFromSym(nxt):null;
             const changing=nc&&nc.bass%12!==ch.bass%12;
@@ -1292,7 +1319,7 @@ function scheduleWindow(t0,winS,winE,fxFrom){fxFrom=fxFrom==null?winS:fxFrom;
   sched(MODEL.tracks.crash,n=>drum('crash',at(n.t),n.vel));
   const run=curKit==='running';
   const rSt=run?runStyle():null;
-  sched(MODEL.tracks.bass,n=>{if(n.synthB)synth('bass',{wave:rSt&&rSt.power?'square':curKit==='country'?'triangle':'sawtooth',midi:n.midi,t:at(n.t),dur:ds(n),vel:n.vel,lpf:run?rSt.bassSyn.lpf:curKit==='country'?700:900,lvl:run?rSt.bassSyn.lvl:curKit==='country'?0.62:0.7,rel:0.06});else bass808(at(n.t),ds(n),n.midi,n.vel,n.glide);});
+  sched(MODEL.tracks.bass,n=>{if(n.synthB)synth('bass',{wave:rSt&&rSt.power?'square':curKit==='country'||curKit==='retro'?'triangle':'sawtooth',midi:n.midi,t:at(n.t),dur:ds(n),vel:n.vel,lpf:run?rSt.bassSyn.lpf:curKit==='country'?700:curKit==='retro'?1100:900,lvl:run?rSt.bassSyn.lvl:curKit==='country'?0.62:0.7,rel:0.06});else bass808(at(n.t),ds(n),n.midi,n.vel,n.glide);});
   sched(MODEL.tracks.chords,n=>{if(rSt&&rSt.power)supersaw('chords',at(n.t),ds(n),n.midi,n.vel,{voices:3,detune:7,lpf:1900,atk:0.01,rel:0.15,lvl:0.22,q:0.7,wave:'square'});
     else if(rSt&&rSt.glass)supersaw('chords',at(n.t),ds(n),n.midi,n.vel,{voices:3,detune:6,lpf:4400,hpf:290,atk:0.004,rel:0.3,lvl:0.2,q:0.5,wave:'triangle',shimmer:0.3}); // 유리질 플럭
     else if(curKit==='country')supersaw('chords',at(n.t),ds(n),n.midi,n.vel,{voices:2,detune:4,lpf:3200,hpf:180,atk:0.003,rel:0.22,lvl:0.2,q:0.5,wave:'triangle'}); // 스틸기타풍 플럭
@@ -1302,11 +1329,12 @@ function scheduleWindow(t0,winS,winE,fxFrom){fxFrom=fxFrom==null?winS:fxFrom;
   sched(MODEL.tracks.lead,n=>supersaw('lead',at(n.t),ds(n),n.midi,n.vel,
     run?{voices:rSt.lead.voices,detune:rSt.lead.detune,lpf:rSt.lead.lpf,hpf:rSt.lead.hpf,shimmer:rSt.lead.shimmer,wave:rSt.lead.wave,atk:0.005,rel:0.12,lvl:0.3,q:0.8}
     :curKit==='country'?{voices:2,detune:6,lpf:3800,atk:0.02,rel:0.18,lvl:0.28,q:0.7}                 // 피들풍
+    :curKit==='retro'?{voices:3,detune:7,lpf:4600,atk:0.006,rel:0.15,lvl:0.28,q:0.7,wave:'square'}    // 80s 스퀘어
     :curKit==='kpop'?{voices:4,detune:10,lpf:5600,atk:0.004,rel:0.1,lvl:0.3,q:0.8,wave:'square'}      // 챈트 스퀘어
     :{voices:5,detune:16,lpf:5200,atk:0.005,rel:0.12,lvl:0.3,q:0.8}));
   // 사이드체인(킥 트리거) — pad/chords(+edm은 bass)
   const pumped=state.sections.some(s=>s.pump);
-  const depth=({edm:0.6,trap:0.42,boombap:0.22,lofi:0.18,country:0.1,kpop:0.5,running:(rSt&&rSt.pump)?0.55:0.4}[curKit]||0.2)*(pumped?1.15:1);
+  const depth=({edm:0.6,trap:0.42,boombap:0.22,lofi:0.18,country:0.1,kpop:0.5,retro:0.3,running:(rSt&&rSt.pump)?0.55:0.4}[curKit]||0.2)*(pumped?1.15:1);
   const kq=MODEL.tracks.kick.filter(n=>n.t>=winS-1e-6&&n.t<winE-1e-6).map(n=>n.t);
   const duck=g=>{if(!g)return;g.gain.cancelScheduledValues(t0);g.gain.setValueAtTime(1,t0);
     kq.forEach(q=>{const tt=at(q),beat=60/secBpmAtQ(q);g.gain.setValueAtTime(Math.max(0.05,1-depth),tt);g.gain.linearRampToValueAtTime(1,tt+Math.min(0.3,beat*0.85));});};
@@ -1423,7 +1451,7 @@ function dl(tracks,name){const header=[...sbm('MThd'),...u32(6),...u16(1),...u16
   const blob=new Blob([new Uint8Array([...header,...tracks.flat()])],{type:'audio/midi'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 function drumMidiTrack(){const notes=[];[...LANES,'crash'].forEach(l=>MODEL.tracks[l].forEach(n=>notes.push({t:n.t,midi:DRUMMIDI[l],vel:n.vel})));return noteTrack(notes,9,null,true,'Drums - GM Drum Kit',null,'Standard Drum Kit');}
 const GMNAME={4:'Electric Piano 1',25:'Acoustic Guitar (steel)',29:'Overdriven Guitar',30:'Distortion Guitar',
-  32:'Acoustic Bass',34:'Electric Bass (pick)',38:'Synth Bass 1',48:'String Ensemble 1',62:'Synth Brass 1',
+  32:'Acoustic Bass',33:'Electric Bass (finger)',34:'Electric Bass (pick)',38:'Synth Bass 1',48:'String Ensemble 1',62:'Synth Brass 1',
   80:'Lead 1 (Square)',81:'Lead 2 (Sawtooth)',88:'Pad 1 (New Age)',89:'Pad 2 (Warm)',90:'Pad 3 (Polysynth)',
   98:'FX 3 (Crystal)',110:'Fiddle'};
 const gmName=p=>GMNAME[p]||('Program '+p);
@@ -1437,6 +1465,7 @@ function gmProgs(){
            ||{bass:38,chords:4,pad:90,lead:81};}
   if(state.genre==='country')return {bass:32,chords:25,pad:48,lead:110};   // 어쿠스틱베이스·스틸기타·현·피들
   if(state.genre==='kpop')return {bass:38,chords:62,pad:90,lead:80};       // 신스브라스 스탭·스퀘어 후크
+  if(state.genre==='retro')return {bass:33,chords:4,pad:89,lead:80};        // 핑거베이스·EP·웜패드·스퀘어
   return {bass:38,chords:4,pad:90,lead:81};}
 const FXNOTE={vinyl:36,hiss:37,rain:38,ocean:39,wind:40,sweep:41,riser:43,impact:45,bowl:46,revcrash:47,subdrop:48};
 function fxCueTrack(){const PPQ=480,ev=[];
