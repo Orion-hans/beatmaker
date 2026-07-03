@@ -72,7 +72,7 @@
   /* step sequencer */
   .seq{display:grid;grid-template-columns:62px 1fr;gap:6px;align-items:center;margin-bottom:4px;}
   .lane-name{font-family:"JetBrains Mono",monospace;font-size:10.5px;color:var(--muted);text-align:right;padding-right:2px;}
-  .steps{display:grid;grid-template-columns:repeat(16,1fr);gap:3px;}
+  .steps{display:grid;grid-template-columns:repeat(var(--stn,16),1fr);gap:3px;}
   .st{aspect-ratio:1;border-radius:3px;background:var(--card2);border:1px solid var(--line);cursor:pointer;min-height:18px;}
   .st.beat{background:#262b35;}
   .st.on{background:var(--acc);border-color:var(--acc);box-shadow:0 0 6px rgba(70,224,200,.5);}
@@ -97,6 +97,69 @@
   .playing .dot{background:var(--acc2);animation:pulse 1s infinite;}
   @keyframes pulse{0%,100%{opacity:.4;}50%{opacity:1;}}
   @media (max-width:640px){.grid{grid-template-columns:repeat(2,1fr);}}
+
+/* ===== 반응형·터치 최적화 레이어 (패드·노트북) ===== */
+*{-webkit-tap-highlight-color:transparent;}
+button,select,.achip,.st,.seg,.ptoggle,.chk{touch-action:manipulation;}
+.ribbon{-webkit-overflow-scrolling:touch;scrollbar-width:thin;}
+.pbody{overflow-x:hidden;}
+
+/* 노트북·데스크톱: 가독성 */
+@media (min-width:900px){
+  .panel{padding:20px 26px;}
+  .plabel{font-size:13px;}
+  .tip{font-size:13.5px;line-height:1.6;max-width:72ch;}
+  .stool{font-size:12.5px;row-gap:12px;}
+  .steps{gap:4px;}
+  .seg{padding:9px 8px;}
+  button{font-size:13.5px;padding:9px 15px;}
+}
+
+/* 터치 기기(패드·폰): 탭 타깃 44px 기준 */
+@media (pointer:coarse){
+  button{min-height:44px;padding:10px 16px;font-size:14.5px;border-radius:9px;}
+  button.sm{min-height:38px;padding:8px 12px;font-size:13px;}
+  button.icon{min-height:38px;min-width:38px;}
+  select{min-height:42px;font-size:15px;padding:8px 10px;border-radius:8px;}
+  input[type=text],input[type=number]{min-height:42px;font-size:16px;padding:9px 10px;} /* 16px = iOS 확대 방지 */
+  .achip{box-sizing:border-box;min-height:44px;display:inline-flex;align-items:center;padding:9px 16px;font-size:14px;}
+  .chk{min-height:40px;font-size:14px;gap:8px;}
+  .chk input[type=checkbox]{width:20px;height:20px;}
+  .ptoggle{min-height:46px;padding-top:4px;padding-bottom:4px;}
+  .st{min-height:34px;border-radius:5px;}
+  .steps{gap:4px;}
+  .seg{min-width:78px;padding:12px 8px;font-size:13px;}
+  .mini{gap:8px;font-size:13px;flex-wrap:wrap;}
+  .stool{gap:14px;row-gap:14px;}
+  output{font-size:13.5px;}
+  input[type=range]{height:36px;}
+  input[type=range]::-webkit-slider-thumb{width:26px;height:26px;}
+  input[type=range]::-moz-range-thumb{width:24px;height:24px;}
+  .transport{padding:13px 16px calc(13px + env(safe-area-inset-bottom));gap:11px;}
+  #play,#stop{min-height:50px;min-width:76px;font-size:16px;}
+  .tip{font-size:13.5px;line-height:1.55;}
+}
+
+/* 좁은 화면: 필드 2열 */
+@media (max-width:760px){
+  .panel{padding:14px 14px;}
+  .stool .mini{flex:1 1 46%;}
+}
+/* 폰: 스텝 그리드를 8칸×2줄(반마디)로 — 잘림 없이 큰 탭 타깃 */
+@media (max-width:560px){
+  .seq{grid-template-columns:44px 1fr;gap:5px;}
+  .seq>span:first-child,.seq .lname{font-size:11px;}
+  .steps{gap:3px;}
+  .steps[data-stn="16"]{grid-template-columns:repeat(8,1fr);}
+  .steps[data-stn="24"]{grid-template-columns:repeat(12,1fr);}
+  .steps[data-stn="32"]{grid-template-columns:repeat(16,1fr);}
+  .st{min-height:30px;}
+}
+@media (max-width:400px){.st{min-height:26px;}.seq{grid-template-columns:40px 1fr;}}
+/* 태블릿 세로(~1024px): 필드 그리드 여유 */
+@media (min-width:641px) and (max-width:1024px){
+  .grid{grid-template-columns:repeat(4,1fr);gap:14px;}
+}
 </style>
 </head>
 <body>
@@ -723,7 +786,7 @@ function renderEditor(){
   LANES.forEach(lane=>{
     const row=document.createElement('div');row.className='seq';
     const nm=document.createElement('div');nm.className='lane-name';nm.textContent=LANE_KO[lane];
-    const steps=document.createElement('div');steps.className='steps';steps.style.gridTemplateColumns='repeat('+STN+',1fr)';
+    const steps=document.createElement('div');steps.className='steps';steps.style.setProperty('--stn',STN);steps.dataset.stn=STN;
     sec.drums[lane].forEach((on,si)=>{const c=document.createElement('div');
       c.className='st'+((si%beatEvery===0)?' beat':'')+(on?' on':'')+(lane==='kick'?' k':'');c.dataset.lane=lane;c.dataset.si=si;
       c.onclick=()=>{sec.drums[lane][si]=!sec.drums[lane][si];c.classList.toggle('on',sec.drums[lane][si]);};
