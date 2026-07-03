@@ -1505,6 +1505,12 @@ function tempoTrack(){const PPQ=480;let evs=[{tick:0,type:'ts'}],lastBpm=null;
     evs.push({tick:Math.round(s.startQ*PPQ),type:'marker',text:s.type+(cnt[s.type]>1?' '+cnt[s.type]:'')});});
   evs.sort((a,b)=>a.tick-b.tick||(a.type==='tempo'?-1:1));let body=[],last=0;
   body.push(...vlq(0),...metaText(0x03,'Tempo & Markers'));
+  // 조표 (FF 59): 키 pc → 샤프(+)/플랫(−) 개수 · 장/단은 홈 코드로 판별 (vi 단3화음 = 관계단조)
+  const KEYSF=[0,-5,2,-3,4,-1,6,1,-4,3,-2,5];
+  let mi=0;
+  try{const hc=chordFromSym(state.sections[0].chords[0]);
+    if(hc&&hc.notes.length>1&&((hc.notes[1]-hc.notes[0])%12+12)%12===3&&(((hc.bass%12)-keyPc()+12)%12===9))mi=1;}catch(e){}
+  body.push(...vlq(0),0xFF,0x59,0x02,(KEYSF[keyPc()]&0xFF),mi);
   evs.forEach(e=>{body.push(...vlq(e.tick-last));last=e.tick;
     if(e.type==='tempo'){const m=Math.round(60000000/e.bpm);body.push(0xFF,0x51,0x03,(m>>16)&255,(m>>8)&255,m&255);}
     else if(e.type==='marker')body.push(...metaText(0x06,e.text));
