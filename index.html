@@ -262,7 +262,8 @@ button,select,.achip,.st,.seg,.ptoggle,.chk{touch-action:manipulation;}
       <button class="sm" data-inst="pad">패드</button>
       <button class="sm" data-inst="lead">리드</button>
     </div>
-    <p class="tip">트랙별 .mid로 내보내 로직 등 DAW에서 음원을 입히세요. 트랙 이름·구간 마커·템포맵이 함께 담기고, 드럼은 표준 GM 맵(킥36·스네어38·클랩39·하햇42/46·크래시49), 벨로시티에 강약·고스트·필이 그대로 실립니다. 빌드업 구간엔 패드 트랙에 CC74(필터 열림) 오토메이션이 기록되고, 러닝 스타일별로 GM 악기(청량=크리스탈, 락=오버드라이브 기타, 신스웨이브=스퀘어 리드 등)가 지정돼 로직에서 열자마자 의도한 음색 계열로 들려요. 물론 최종 음색(시머·리버브·질감)은 로직에서 음원을 입혀 완성하는 영역입니다. 분위기(바이닐·파도·싱잉볼 등)는 소리 자체는 미리듣기 전용이지만, 전체 내보내기에 'FX Cues' 가이드 트랙이 포함돼 각 이벤트의 위치·길이가 노트와 텍스트로 찍힙니다 — 로직에서 그 자리에 원하는 샘플을 얹으세요.</p>
+    <label class="chk" style="margin-top:10px;"><input type="checkbox" id="noSheet"> 송시트(.txt) 저장 안 함</label>
+    <p class="tip">트랙별 .mid로 내보내 로직 등 DAW에서 음원을 입히세요. 트랙 이름·구간 마커·템포맵이 함께 담기고, 드럼은 표준 GM 맵(킥36·스네어38·클랩39·하햇42/46·크래시49), 벨로시티에 강약·고스트·필이 그대로 실립니다. 빌드업 구간엔 패드 트랙에 CC74(필터 열림) 오토메이션이 기록되고, 러닝 스타일별로 GM 악기(청량=크리스탈, 락=오버드라이브 기타, 신스웨이브=스퀘어 리드 등)가 지정돼 로직에서 열자마자 의도한 음색 계열로 들려요. 물론 최종 음색(시머·리버브·질감)은 로직에서 음원을 입혀 완성하는 영역입니다. 분위기(바이닐·파도·싱잉볼 등)는 소리 자체는 미리듣기 전용이지만, 전체 내보내기에 'FX Cues' 가이드 트랙이 포함돼 각 이벤트의 위치·길이가 노트와 텍스트로 찍힙니다 — 로직에서 그 자리에 원하는 샘플을 얹으세요. 그리고 <b>전체 트랙</b>으로 내보내면 <b>송시트(.txt)</b>가 함께 저장돼요 — 조성·빠르기·전체 구조·구간별 코드·제작 악기 메모를 총보 머리말처럼 한눈에 정리해, 멜로디 작업 전 곡을 조망할 수 있습니다.</p>
     </div>
   </div>
 
@@ -1482,7 +1483,7 @@ function stop(silent){if(stopT){clearTimeout(stopT);stopT=null;}if(CHUNKT){clear
 /* ===== MIDI ===== */
 function vlq(n){let b=n&0x7F,o=[];while(n>>=7){b<<=8;b|=((n&0x7F)|0x80);}while(1){o.push(b&0xFF);if(b&0x80)b>>=8;else break;}return o;}
 const sbm=s=>[...s].map(c=>c.charCodeAt(0)),u32=n=>[(n>>>24)&255,(n>>>16)&255,(n>>>8)&255,n&255],u16=n=>[(n>>>8)&255,n&255];
-const metaText=(type,txt)=>{const b=[...txt].map(c=>c.charCodeAt(0)&0x7F);return [0xFF,type,b.length,...b];};
+const metaText=(type,txt)=>{const b=[...txt].map(c=>c.charCodeAt(0)&0x7F);return [0xFF,type,...vlq(b.length),...b];};
 function noteTrack(notes,ch,prog,isDrumMap,name,ccEvents,instName){const PPQ=480,ev=[];
   notes.forEach(n=>{const midi=n.midi,dur=isDrumMap?0.1:(n.dur||0.25);ev.push({t:Math.round(n.t*PPQ),on:1,midi,vel:n.vel});ev.push({t:Math.round((n.t+dur)*PPQ),on:0,midi,vel:0});});
   (ccEvents||[]).forEach(c=>ev.push({t:Math.round(c.t*PPQ),on:2,cc:c.cc,val:c.val}));
@@ -1500,10 +1501,27 @@ function padCC(){const PPQ_STEPS=8,cc=[];
   return cc;}
 function tempoTrack(){const PPQ=480;let evs=[{tick:0,type:'ts'}],lastBpm=null;
   (MODEL.tempoMap||[]).forEach(s=>{if(s.bpm!==lastBpm){evs.push({tick:Math.round(s.startQ*PPQ),type:'tempo',bpm:s.bpm});lastBpm=s.bpm;}});
-  // 섹션 마커 — 로직 마커 트랙에 구간 이름 표시
-  const cnt={};MODEL.sections.forEach(s=>{cnt[s.type]=(cnt[s.type]||0)+1;
-    evs.push({tick:Math.round(s.startQ*PPQ),type:'marker',text:s.type+(cnt[s.type]>1?' '+cnt[s.type]:'')});});
-  evs.sort((a,b)=>a.tick-b.tick||(a.type==='tempo'?-1:1));let body=[],last=0;
+  // 섹션 마커 — 구간 이름 + 코드 진행 (멜로디 작업 시 타임라인에서 한눈에)
+  const cnt={};MODEL.sections.forEach((s,i)=>{cnt[s.type]=(cnt[s.type]||0)+1;
+    const sec=state.sections[i],prog=sec?sec.chords.join('-'):'';
+    evs.push({tick:Math.round(s.startQ*PPQ),type:'marker',
+      text:s.type+(cnt[s.type]>1?' '+cnt[s.type]:'')+(prog?' | '+prog:'')});});
+  // 곡 머리 요약 (FF 01 텍스트) — 조성·템포·구조·구간별 진행: 로직 이벤트 리스트에서 확인
+  {const NAMES=['C','Db','D','Eb','E','F','F#','G','Ab','A','Bb','B'];
+   let mi2=0;try{const hc=chordFromSym(state.sections[0].chords[0]);
+     if(hc&&hc.notes.length>1&&((hc.notes[1]-hc.notes[0])%12+12)%12===3&&(((hc.bass%12)-keyPc()+12)%12===9))mi2=1;}catch(e){}
+   const keyName=mi2?NAMES[(keyPc()+9)%12]+' minor':NAMES[keyPc()]+' major';
+   const bpms=[...new Set((MODEL.tempoMap||[]).map(g=>Math.round(g.bpm)))];
+   const form=state.sections.map(s=>s.type+' '+s.bars).join(' > ');
+   const seen=new Set(),progLines=[];
+   state.sections.forEach((sec,i)=>{const k=sec.type+':'+sec.chords.join('-');
+     if(!seen.has(k)){seen.add(k);progLines.push(sec.type+(state.sections.filter((x,j)=>j<i&&x.type===sec.type).length?' (var)':'')+': '+sec.chords.join(' - ')+(sec.chordBars>1?' ('+sec.chordBars+'bars/chord)':'')); }});
+   const lines=['=== SONG SHEET ===','KEY: '+keyName,
+     'TEMPO: '+(bpms.length>1?bpms[0]+'-'+bpms[bpms.length-1]+' BPM (curve)':bpms[0]+' BPM'),
+     'FORM: '+form,'--- CHORDS ---',...progLines];
+   lines.forEach(tx=>evs.push({tick:0,type:'text',text:tx}));}
+  const ORD={ts:0,tempo:1,text:2,marker:3};
+  evs.sort((a,b)=>a.tick-b.tick||(ORD[a.type]||9)-(ORD[b.type]||9));let body=[],last=0;
   body.push(...vlq(0),...metaText(0x03,'Tempo & Markers'));
   // 조표 (FF 59): 키 pc → 샤프(+)/플랫(−) 개수 · 장/단은 홈 코드로 판별 (vi 단3화음 = 관계단조)
   const KEYSF=[0,-5,2,-3,4,-1,6,1,-4,3,-2,5];
@@ -1514,6 +1532,7 @@ function tempoTrack(){const PPQ=480;let evs=[{tick:0,type:'ts'}],lastBpm=null;
   evs.forEach(e=>{body.push(...vlq(e.tick-last));last=e.tick;
     if(e.type==='tempo'){const m=Math.round(60000000/e.bpm);body.push(0xFF,0x51,0x03,(m>>16)&255,(m>>8)&255,m&255);}
     else if(e.type==='marker')body.push(...metaText(0x06,e.text));
+    else if(e.type==='text')body.push(...metaText(0x01,e.text));
     else body.push(0xFF,0x58,0x04,4,2,24,8);});
   body.push(...vlq(0),0xFF,0x2F,0x00);return [...sbm('MTrk'),...u32(body.length),...body];}
 function dl(tracks,name){const header=[...sbm('MThd'),...u32(6),...u16(1),...u16(tracks.length),...u16(480)];
@@ -1570,6 +1589,57 @@ function fxCueTrack(){const PPQ=480,ev=[];
     if(e.kind==='txt')body.push(...metaText(0x01,e.text));
     else if(e.kind===1)body.push(0x90|14,e.midi,e.vel);else body.push(0x80|14,e.midi,0);});
   body.push(...vlq(0),0xFF,0x2F,0x00);return [...sbm('MTrk'),...u32(body.length),...body];}
+function buildSongSheet(){
+  const NAMES=['C','D♭','D','E♭','E','F','F♯','G','A♭','A','B♭','B'];
+  let mi=0;try{const hc=chordFromSym(state.sections[0].chords[0]);
+    if(hc&&hc.notes.length>1&&((hc.notes[1]-hc.notes[0])%12+12)%12===3&&(((hc.bass%12)-keyPc()+12)%12===9))mi=1;}catch(e){}
+  const keyName=mi?NAMES[(keyPc()+9)%12]+' 단조 ('+NAMES[(keyPc()+9)%12]+' minor)':NAMES[keyPc()]+' 장조 ('+NAMES[keyPc()]+' major)';
+  const bpms=[...new Set((MODEL.tempoMap||[]).map(g=>Math.round(g.bpm)))];
+  const tempoStr=bpms.length>1?bpms[0]+'→'+bpms[bpms.length-1]+' BPM (템포 변화)':bpms[0]+' BPM';
+  const gLabel={lofi:'Lo-Fi',boombap:'Boom Bap',trap:'Trap',edm:'EDM',running:'러닝'+(state.runStyle?'/'+state.runStyle:''),country:'컨트리 팝',kpop:'K-Pop',retro:'레트로(80s·시티팝)'}[state.genre]||state.genre;
+  const totalSec=Math.round(MODEL.totalSec||estTotalSec());
+  const mmss=s=>Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+  const secBps=60/(bpms[0]||120), secAt=q=>{let acc=0;const tm=MODEL.tempoMap||[];for(const g of tm){const dur=(Math.min(q,g.endQ)-g.startQ);if(dur>0)acc+=dur*(60/g.bpm);if(q<=g.endQ)break;}return acc;};
+  const L=[];
+  L.push('╔══════════════════════════════════════╗');
+  L.push('  SONG SHEET — '+gLabel);
+  L.push('╚══════════════════════════════════════╝');
+  L.push('');
+  L.push('조성(KEY)   : '+keyName);
+  L.push('빠르기(TEMPO): '+tempoStr);
+  L.push('길이(LENGTH) : '+mmss(totalSec));
+  L.push('시작(INTRO)  : '+({stack:'쌓아 올리기',pickup:'픽업 스웰(+1마디)',impact:'임팩트 부머',fadein:'페이드인',bowlIn:'싱잉볼 여는 종(+2마디)',direct:'바로 시작'}[state.introStyle]||state.introStyle));
+  L.push('종지(ENDING) : '+({finale:'피날레 원샷',finaleBoom:'부머 테일(+1마디)',finaleBowl:'싱잉볼 명상형(+2마디)',fade:'페이드아웃',handoff:'넘김(이어붙이기)',loop:'루프용'}[state.endStyle]||state.endStyle));
+  L.push('');
+  L.push('─── 구조 (FORM) ───');
+  let barAcc=0;
+  MODEL.sections.forEach((s,i)=>{
+    const sec=state.sections[i];
+    const t=secAt(s.startQ);
+    const bar=Math.round(s.startQ/4)+1;
+    const name=(s.type+(MODEL.sections.filter((x,j)=>j<=i&&x.type===s.type).length>1?' '+MODEL.sections.filter((x,j)=>j<=i&&x.type===s.type).length:''));
+    L.push('['+mmss(Math.round(t))+'] '+String(bar).padStart(3)+'마디  '+name.padEnd(9)+' '+(sec?sec.chords.join(' - '):''));
+  });
+  L.push('');
+  L.push('─── 구간별 코드 (CHORDS) ───');
+  const seen=new Set();
+  state.sections.forEach((sec,i)=>{const k=sec.type+':'+sec.chords.join('-');if(seen.has(k))return;seen.add(k);
+    const vv=state.sections.filter((x,j)=>j<i&&x.type===sec.type).length?' (변형)':'';
+    L.push('• '+sec.type+vv+' : '+sec.chords.join(' - ')+(sec.chordBars>1?'  ('+sec.chordBars+'마디/코드)':''));});
+  L.push('');
+  L.push('─── 제작 메모 (LOGIC) ───');
+  const RN=recNames();
+  L.push('Drums : '+RN.drums);
+  L.push('Bass  : '+RN.bass);
+  L.push('Chords: '+RN.chords);
+  L.push('Pad   : '+RN.pad);
+  L.push('Lead  : '+RN.lead);
+  L.push('');
+  L.push('※ MIDI 가이드 — 로직에서 위 악기명으로 음원 교체 후 멜로디 완성.');
+  L.push('※ 조성·템포·마커는 글로벌 트랙에 포함됨.');
+  return L.join('\n');
+}
+function dlText(txt,name){const blob=new Blob([txt],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 function exportAll(){arrange();const P=gmProgs(),RN=recNames();
   const tr=[tempoTrack(),drumMidiTrack(),
     noteTrack(MODEL.tracks.bass,1,P.bass,false,'Bass - '+RN.bass,null,RN.bass+' | GM: '+gmName(P.bass)),
@@ -1577,7 +1647,9 @@ function exportAll(){arrange();const P=gmProgs(),RN=recNames();
   if(MODEL.tracks.pad.length)tr.push(noteTrack(MODEL.tracks.pad,3,P.pad,false,'Pad - '+RN.pad,padCC(),RN.pad+' | GM: '+gmName(P.pad)));
   if(MODEL.tracks.lead.length)tr.push(noteTrack(MODEL.tracks.lead,4,P.lead,false,'Lead - '+RN.lead,null,RN.lead+' | GM: '+gmName(P.lead)));
   if(MODEL.tracks.fx.length)tr.push(fxCueTrack());
-  dl(tr,`beat_${state.genre==='running'?'running-'+state.runStyle:state.genre}_${MODEL.bpm}bpm.mid`);}
+  const stem=`beat_${state.genre==='running'?'running-'+state.runStyle:state.genre}_${MODEL.bpm}bpm`;
+  dl(tr,stem+'.mid');
+  if(!$('noSheet')||!$('noSheet').checked)setTimeout(()=>dlText(buildSongSheet(),stem+'_송시트.txt'),400);}
 function exportOne(inst){arrange();const P=gmProgs(),RN=recNames();let tk;
   if(inst==='drums')tk=[tempoTrack(),drumMidiTrack()];
   else{const c={bass:[1,P.bass,'Bass'],chords:[2,P.chords,'Chords'],pad:[3,P.pad,'Pad'],lead:[4,P.lead,'Lead']}[inst];
