@@ -1518,12 +1518,32 @@ function tempoTrack(){const PPQ=480;let evs=[{tick:0,type:'ts'}],lastBpm=null;
   body.push(...vlq(0),0xFF,0x2F,0x00);return [...sbm('MTrk'),...u32(body.length),...body];}
 function dl(tracks,name){const header=[...sbm('MThd'),...u32(6),...u16(1),...u16(tracks.length),...u16(480)];
   const blob=new Blob([new Uint8Array([...header,...tracks.flat()])],{type:'audio/midi'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-function drumMidiTrack(){const notes=[];[...LANES,'crash'].forEach(l=>MODEL.tracks[l].forEach(n=>notes.push({t:n.t,midi:DRUMMIDI[l],vel:n.vel})));return noteTrack(notes,9,null,true,'Drums - GM Drum Kit',null,'Standard Drum Kit');}
+function drumMidiTrack(){const notes=[];[...LANES,'crash'].forEach(l=>MODEL.tracks[l].forEach(n=>notes.push({t:n.t,midi:DRUMMIDI[l],vel:n.vel})));
+  return noteTrack(notes,9,null,true,'Drums - '+recNames().drums,null,recNames().drums);}
 const GMNAME={4:'Electric Piano 1',25:'Acoustic Guitar (steel)',29:'Overdriven Guitar',30:'Distortion Guitar',
   32:'Acoustic Bass',33:'Electric Bass (finger)',34:'Electric Bass (pick)',38:'Synth Bass 1',48:'String Ensemble 1',62:'Synth Brass 1',
   80:'Lead 1 (Square)',81:'Lead 2 (Sawtooth)',88:'Pad 1 (New Age)',89:'Pad 2 (Warm)',90:'Pad 3 (Polysynth)',
   98:'FX 3 (Crystal)',110:'Fiddle'};
 const gmName=p=>GMNAME[p]||('Program '+p);
+/* 트랙별 추천 악기 — 로직에서 음원 찾을 때 그대로 검색어로 (GM 프리뷰와 별개) */
+function recNames(){
+  const R={
+    lofi:{drums:'Lo-Fi Dusty Kit',bass:'Round Synth Bass',chords:'Lo-Fi Rhodes EP',pad:'Warm Tape Pad',lead:'Soft Lead'},
+    boombap:{drums:'Boom Bap Kit (punchy)',bass:'Finger Bass',chords:'Rhodes/Wurli EP',pad:'Warm Pad',lead:'Soft Lead'},
+    trap:{drums:'Trap Kit (fast hats)',bass:'808 Sub Bass (glide)',chords:'Dark Bell/EP',pad:'Dark Pad',lead:'Pluck Lead'},
+    edm:{drums:'EDM Kit (4-on-floor)',bass:'Saw Bass (sidechained)',chords:'Supersaw Chords',pad:'Supersaw Pad (wide)',lead:'Supersaw Lead'},
+    country:{drums:'Acoustic Kit + Tambourine',bass:'Upright/Acoustic Bass (root-five)',chords:'Steel-String Acoustic Strum',pad:'Strings / Pedal Steel',lead:'Fiddle or Clean Guitar'},
+    kpop:{drums:'Modern Pop Kit (layered clap)',bass:'Punchy Synth Bass',chords:'Synth Brass Stabs',pad:'Bright Polysynth Pad',lead:'Chant Square Lead (vocal-chop style)'},
+    retro:{drums:'80s Gated-Snare Kit',bass:'Finger Funk Bass (city pop)',chords:'FM/Rhodes EP (7th chords)',pad:'Analog Warm Pad',lead:'Square Synth Lead'}
+  };
+  const RUN={
+    fresh:{drums:'Clean Dance Kit',bass:'Mid Synth Bass 150-280Hz (bone conduction)',chords:'Glassy Pluck / Crystal',pad:'Airy Shimmer Pad',lead:'Bright Pluck Lead (pentatonic)'},
+    power:{drums:'Big Room Kit',bass:'Mid Saw Bass 150-280Hz (pumped)',chords:'Polysynth Stab (arp)',pad:'Wide Supersaw Pad',lead:'Hard Saw Lead'},
+    rock:{drums:'Rock Kit (tight snare 2&4)',bass:'Picked Electric Bass',chords:'Overdriven Rhythm Guitar (power chords)',pad:'Strings / Organ',lead:'Distorted Lead Guitar'},
+    synthwave:{drums:'80s Drum Machine (LinnDrum style)',bass:'Analog Octave Bass 16th',chords:'Analog Polysynth',pad:'Analog Warm Pad',lead:'Square Synth Lead'}
+  };
+  return state.genre==='running'?(RUN[state.runStyle]||RUN.fresh):(R[state.genre]||R.lofi);
+}
 /* GM 프로그램 — 스타일 의도가 로직 첫 재생부터 들리게 (음원 교체 전 가이드용) */
 function gmProgs(){
   if(state.genre==='running'){
@@ -1550,18 +1570,18 @@ function fxCueTrack(){const PPQ=480,ev=[];
     if(e.kind==='txt')body.push(...metaText(0x01,e.text));
     else if(e.kind===1)body.push(0x90|14,e.midi,e.vel);else body.push(0x80|14,e.midi,0);});
   body.push(...vlq(0),0xFF,0x2F,0x00);return [...sbm('MTrk'),...u32(body.length),...body];}
-function exportAll(){arrange();const P=gmProgs();
+function exportAll(){arrange();const P=gmProgs(),RN=recNames();
   const tr=[tempoTrack(),drumMidiTrack(),
-    noteTrack(MODEL.tracks.bass,1,P.bass,false,'Bass - '+gmName(P.bass),null,gmName(P.bass)),
-    noteTrack(MODEL.tracks.chords,2,P.chords,false,'Chords - '+gmName(P.chords),null,gmName(P.chords))];
-  if(MODEL.tracks.pad.length)tr.push(noteTrack(MODEL.tracks.pad,3,P.pad,false,'Pad - '+gmName(P.pad),padCC(),gmName(P.pad)));
-  if(MODEL.tracks.lead.length)tr.push(noteTrack(MODEL.tracks.lead,4,P.lead,false,'Lead - '+gmName(P.lead),null,gmName(P.lead)));
+    noteTrack(MODEL.tracks.bass,1,P.bass,false,'Bass - '+RN.bass,null,RN.bass+' | GM: '+gmName(P.bass)),
+    noteTrack(MODEL.tracks.chords,2,P.chords,false,'Chords - '+RN.chords,null,RN.chords+' | GM: '+gmName(P.chords))];
+  if(MODEL.tracks.pad.length)tr.push(noteTrack(MODEL.tracks.pad,3,P.pad,false,'Pad - '+RN.pad,padCC(),RN.pad+' | GM: '+gmName(P.pad)));
+  if(MODEL.tracks.lead.length)tr.push(noteTrack(MODEL.tracks.lead,4,P.lead,false,'Lead - '+RN.lead,null,RN.lead+' | GM: '+gmName(P.lead)));
   if(MODEL.tracks.fx.length)tr.push(fxCueTrack());
   dl(tr,`beat_${state.genre==='running'?'running-'+state.runStyle:state.genre}_${MODEL.bpm}bpm.mid`);}
-function exportOne(inst){arrange();const P=gmProgs();let tk;
+function exportOne(inst){arrange();const P=gmProgs(),RN=recNames();let tk;
   if(inst==='drums')tk=[tempoTrack(),drumMidiTrack()];
   else{const c={bass:[1,P.bass,'Bass'],chords:[2,P.chords,'Chords'],pad:[3,P.pad,'Pad'],lead:[4,P.lead,'Lead']}[inst];
-    tk=[tempoTrack(),noteTrack(MODEL.tracks[inst],c[0],c[1],false,c[2]+' - '+gmName(c[1]),inst==='pad'?padCC():null,gmName(c[1]))];}
+    tk=[tempoTrack(),noteTrack(MODEL.tracks[inst],c[0],c[1],false,c[2]+' - '+RN[inst],inst==='pad'?padCC():null,RN[inst]+' | GM: '+gmName(c[1]))];}
   dl(tk,`beat_${inst}_${MODEL.bpm}bpm.mid`);}
 
 /* ===== 저장 / 불러오기 ===== */
