@@ -283,7 +283,7 @@ button,select,.achip,.st,.seg,.ptoggle,.chk{touch-action:manipulation;}
       <label class="sm" for="imJson" style="cursor:pointer;display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:var(--r);padding:5px 10px;">.json 열기</label>
       <input type="file" id="imJson" accept=".json,application/json" style="display:none;">
     </div>
-    <p class="tip" id="saveMsg">.json은 이 편집기의 프로젝트 저장본이에요(음악 파일 아님). <b>SUM WAVE 셀렉터에서 내보낸 프리셋 JSON</b>도 이 버튼으로 열면 러닝 구간·BPM 곡선으로 자동 변환돼요. DAW로 가져갈 음악은 04 MIDI를 쓰세요.</p>
+    <p class="tip" id="saveMsg">.json은 이 편집기의 프로젝트 저장본이에요(음악 파일 아님). <b>SUM WAVE 셀렉터 프리셋</b>은 우측 하단 <b>📥 SUM WAVE 프리셋</b> 버튼으로 불러오세요. DAW로 가져갈 음악은 04 MIDI를 쓰세요.</p>
     </div>
   </div>
   </div><!-- /scroll -->
@@ -1915,5 +1915,37 @@ $('saveLocal').onclick=saveLocal;$('loadLocal').onclick=loadLocal;$('exJson').on
 $('imJson').onchange=e=>{if(e.target.files[0])importJSON(e.target.files[0]);e.target.value='';};
 document.querySelectorAll('.ptoggle').forEach(h=>h.onclick=()=>h.closest('.panel').classList.toggle('collapsed'));
 </script>
+
+<!-- ══ SUM WAVE 셀렉터 프리셋 로더 (빌더와 동일 방식) ══ -->
+<button id="swChip" onclick="swToggleBox()" style="position:fixed;right:14px;bottom:14px;z-index:9999;background:#14161C;color:#46E0C8;border:1px solid #2B303B;border-radius:999px;padding:9px 15px;font-size:12.5px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.35);opacity:.88;font-family:inherit">📥 SUM WAVE 프리셋</button>
+<div id="swBox" style="display:none;position:fixed;right:14px;bottom:62px;z-index:9999;background:#14161C;color:#E9ECF3;border:1px solid #2B303B;border-radius:14px;padding:15px 16px;max-width:340px;max-height:62vh;overflow:auto;font-size:12.5px;line-height:1.55;box-shadow:0 8px 28px rgba(0,0,0,.45);font-family:inherit">
+ <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-weight:700;color:#46E0C8;letter-spacing:.04em;font-size:11px">SUM WAVE 셀렉터 연동</div><button onclick="swToggleBox()" style="background:none;border:0;color:#868E9C;font-size:15px;cursor:pointer;padding:0 2px">✕</button></div>
+ <div style="margin-bottom:10px;color:#c3cad6">셀렉터에서 <b>내보낸 프리셋 JSON</b>을 불러오면 러닝 구간·BPM 곡선(명상은 구조)이 자동 반영돼요.</div>
+ <input type="file" id="swSpecFile" accept=".json,application/json" style="display:none">
+ <button onclick="document.getElementById('swSpecFile').click()" style="background:#2E8B7A;color:#fff;border:0;border-radius:8px;padding:8px 13px;font-weight:700;cursor:pointer;font-family:inherit">📥 프리셋 JSON 불러오기</button>
+ <div id="swSpecInfo" style="margin-top:9px;color:#aeb6c2"></div>
+ <div style="margin-top:11px;padding-top:10px;border-top:1px solid #2B303B;font-size:11px;color:#868E9C;line-height:1.6">불러온 뒤 <b>04 다듬기</b>에서 비트·코드를 손보고, <b>05에서 트랙별 MIDI</b>로 내보내 로직으로 넘기세요.</div>
+</div>
+<script>
+function swToggleBox(){var b=document.getElementById('swBox'),c=document.getElementById('swChip');var open=b.style.display!=='none';b.style.display=open?'none':'block';c.style.opacity=open?'.88':'1';}
+document.getElementById('swSpecFile').addEventListener('change',function(e){
+ var f=e.target.files[0];if(!f)return;
+ var r=new FileReader();
+ r.onload=function(){
+  try{
+   var j=JSON.parse(r.result);
+   if(j.format!=='sumwave-spec'||!j.segments){throw new Error('형식');}
+   applySumwaveSpec(j);
+   var info=document.getElementById('swSpecInfo');
+   var segs=j.segments.map(function(g){return g.name+'('+(g.vStart===g.vEnd?g.vEnd:(g.vStart+'→'+g.vEnd))+')';}).join(' → ');
+   info.innerHTML='<b style="color:#46E0C8">'+(j.mode||'')+' · '+(j.totalMin||'?')+'분 ('+(j.unit==='BPM'?'러닝':'명상')+')</b><br>'+segs
+     +(j.unit==='BPM'?'<br><span style="color:#E0C24A">BPM 곡선이 구간 템포로 반영됐어요.</span>':'<br><span style="color:#46E0C8">명상 구조로 변환 — 러닝이 메인 용도예요.</span>');
+  }catch(err){document.getElementById('swSpecInfo').innerHTML='<span style="color:#FF5DA2">SUM WAVE 프리셋 JSON이 아니에요.</span>';}
+ };
+ r.readAsText(f);
+ e.target.value='';
+});
+</script>
+
 </body>
 </html>
