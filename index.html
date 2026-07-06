@@ -2106,7 +2106,7 @@ function vlq(n){let b=n&0x7F,o=[];while(n>>=7){b<<=8;b|=((n&0x7F)|0x80);}while(1
 const sbm=s=>[...s].map(c=>c.charCodeAt(0)),u32=n=>[(n>>>24)&255,(n>>>16)&255,(n>>>8)&255,n&255],u16=n=>[(n>>>8)&255,n&255];
 const metaText=(type,txt)=>{const b=[...txt].map(c=>c.charCodeAt(0)&0x7F);return [0xFF,type,...vlq(b.length),...b];};
 function noteTrack(notes,ch,prog,isDrumMap,name,ccEvents,instName){const PPQ=480,ev=[];
-  notes.forEach(n=>{const midi=n.midi,dur=isDrumMap?0.1:(n.dur||0.25);ev.push({t:Math.round(n.t*PPQ),on:1,midi,vel:n.vel});ev.push({t:Math.round((n.t+dur)*PPQ),on:0,midi,vel:0});});
+  notes.forEach(n=>{const midi=n.midi,dur=isDrumMap?(n.dur||0.1):(n.dur||0.25);ev.push({t:Math.round(n.t*PPQ),on:1,midi,vel:n.vel});ev.push({t:Math.round((n.t+dur)*PPQ),on:0,midi,vel:0});});
   (ccEvents||[]).forEach(c=>ev.push({t:Math.round(c.t*PPQ),on:2,cc:c.cc,val:c.val}));
   ev.sort((a,b)=>a.t-b.t||a.on-b.on);let body=[];
   if(name)body.push(...vlq(0),...metaText(0x03,name));
@@ -2159,7 +2159,15 @@ function tempoTrack(){const PPQ=480;let evs=[{tick:0,type:'ts'}],lastBpm=null;
   body.push(...vlq(0),0xFF,0x2F,0x00);return [...sbm('MTrk'),...u32(body.length),...body];}
 function dl(tracks,name){const header=[...sbm('MThd'),...u32(6),...u16(1),...u16(tracks.length),...u16(480)];
   const blob=new Blob([new Uint8Array([...header,...tracks.flat()])],{type:'audio/midi'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-function drumMidiTrack(){const notes=[];[...LANES,'crash'].forEach(l=>MODEL.tracks[l].forEach(n=>notes.push({t:n.t,midi:DRUMMIDI[l],vel:n.vel})));
+function drumMidiTrack(){const raw=[];[...LANES,'crash'].forEach(l=>MODEL.tracks[l].forEach(n=>raw.push({t:n.t,midi:DRUMMIDI[l],vel:n.vel})));
+  const by={};raw.forEach(n=>{(by[n.midi]=by[n.midi]||[]).push(n);});
+  const notes=[];
+  Object.values(by).forEach(a=>{a.sort((x,y)=>x.t-y.t);
+    const mg=[];a.forEach(n=>{const last=mg[mg.length-1];                    // 근접 중복(≈12ms 내 같은 드럼) 병합 — 안 들리는 겹침 제거
+      if(last&&n.t-last.t<0.012){if(n.vel>last.vel)last.vel=n.vel;}else mg.push(n);});
+    mg.forEach((n,i)=>{const nx=mg[i+1];const gap=nx?nx.t-n.t:0.1;            // 다음 타 직전까지로 길이 클립 — 로직 드럼 초킹/롤 뭉개짐 방지
+      n.dur=Math.min(0.1,Math.max(0.005,gap-0.003));notes.push(n);});
+  });
   return noteTrack(notes,9,null,true,'Drums - '+recNames().drums,null,recNames().drums);}
 const GMNAME={4:'Electric Piano 1',25:'Acoustic Guitar (steel)',29:'Overdriven Guitar',30:'Distortion Guitar',
   32:'Acoustic Bass',33:'Electric Bass (finger)',34:'Electric Bass (pick)',38:'Synth Bass 1',48:'String Ensemble 1',62:'Synth Brass 1',
@@ -2203,10 +2211,14 @@ function gmProgs(){
   return {bass:38,chords:4,pad:90,lead:81};}
 const FXNOTE={vinyl:36,hiss:37,rain:38,ocean:39,wind:40,sweep:41,riser:43,impact:45,bowl:46,revcrash:47,subdrop:48};
 function fxCueTrack(){const PPQ=480,ev=[];
-  MODEL.tracks.fx.forEach(e=>{const note=FXNOTE[e.type];if(note==null)return;
-    const dq=e.dur||1;ev.push({t:Math.round(e.t*PPQ),kind:'txt',text:e.type});
-    ev.push({t:Math.round(e.t*PPQ),kind:1,midi:note,vel:Math.min(127,Math.round((e.amt||0.8)*110))});
-    ev.push({t:Math.round((e.t+dq)*PPQ),kind:0,midi:note});});
+  // 같은 분위기 타입(같은 가이드 노트) 겹침 방지 — 다음 동일 큐 직전까지로 길이 클립(가이드 트랙 가독성·초킹 방지)
+  const byType={};MODEL.tracks.fx.forEach(e=>{if(FXNOTE[e.type]==null)return;(byType[e.type]=byType[e.type]||[]).push(e);});
+  Object.keys(byType).forEach(ty=>{const note=FXNOTE[ty];const a=byType[ty].slice().sort((x,y)=>x.t-y.t);
+    const mg=[];a.forEach(e=>{const last=mg[mg.length-1];if(last&&e.t-last.t<0.012){last.amt=Math.max(last.amt||0.8,e.amt||0.8);}else mg.push(Object.assign({},e));});  // 근접 중복 병합
+    mg.forEach((e,i)=>{const nx=mg[i+1];let dq=e.dur||1;if(nx)dq=Math.min(dq,Math.max(0.005,nx.t-e.t-0.003));   // 다음 동일 큐 직전까지 클립
+      ev.push({t:Math.round(e.t*PPQ),kind:'txt',text:ty});
+      ev.push({t:Math.round(e.t*PPQ),kind:1,midi:note,vel:Math.min(127,Math.round((e.amt||0.8)*110))});
+      ev.push({t:Math.round((e.t+dq)*PPQ),kind:0,midi:note});});});
   ev.sort((a,b)=>a.t-b.t||(a.kind==='txt'?-1:a.kind===0?0:1));
   let body=[],last=0;
   body.push(...vlq(0),...metaText(0x03,'FX Cues (guide - replace with samples)'));
