@@ -789,8 +789,8 @@ const atmosById=id=>ATMOS.find(a=>a.id===id);
 /* ===== 상태 ===== */
 // 시드 PRNG — 곡마다 고정 시드로 휴먼라이즈가 재생/미디에서 항상 동일
 function mul32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
-let state={genre:'running',seed:1,targetSec:null,runStyle:'fresh',edmStyle:'house',trapStyle:'trap',halfBpm:false,lofiStyle:'chillhop',boombapStyle:'eastcoast',globalStyle:'amapiano',beatSwitch:'off',hybrid:'off',groove:'straight',secCrash:false,endSwell:false,introStyle:'stack',endStyle:'finale',active:0,sections:[],
-  enabled:{drums:true,bass:true,chords:true,pad:true,lead:false,fx:true},
+let state={genre:'running',seed:1,targetSec:null,runStyle:'fresh',edmStyle:'house',trapStyle:'trap',halfBpm:false,lofiStyle:'chillhop',boombapStyle:'eastcoast',globalStyle:'amapiano',beatSwitch:'off',hybrid:'off',groove:'straight',secCrash:true,endSwell:true,introStyle:'stack',endStyle:'finale',active:0,sections:[],
+  enabled:{drums:true,bass:true,chords:true,pad:true,lead:true,fx:true},
   palette:{vinyl:true,hiss:false,rain:true,sweep:false,riser:false,impact:false},
   loop:false};
 let prevKeyPc=0,focused=null;
@@ -1397,14 +1397,37 @@ function genSongLead(tr,g,sec,start,en,rnd,HOOK){
 function genLead(tr,g,sec,start,en,rnd,HOOK){
   const cb=sec.chordBars||1;HOOK=HOOK||{shape:0,riff:0,edm:0,up:true};
   if(g.id==='country'||g.id==='kpop'||g.id==='retro'||g.id==='hooksong'){genSongLead(tr,g,sec,start,en,rnd,HOOK);return;}
-  if(g.id!=='running'){ // EDM 톱라인 — 곡마다 고정된 리듬 모티프가 드롭마다 반복 (중독성)
+  if(g.id!=='running'){ // EDM·트랩 톱라인 — 시그니처 후크: 음정 윤곽 고정(긴 음만 화성 회피) + 콜↔리스폰스 + 옥타브 유니즌
     if(en<5)return;
-    const RH=[[[0,0,0.9],[1,1,0.9],[2,2,0.9],[1,3,0.9]],
-              [[0,0,0.45],[0,0.5,0.45],[1,1,0.9],[2,2,1.4],[1,3.5,0.5]],
-              [[2,0,0.9],[1,1,0.45],[0,1.5,0.45],[1,2,0.9],[0,3,0.9]]][HOOK.edm%3];
-    for(let bar=0;bar<sec.bars;bar++){const sym=sec.chords[Math.floor(bar/cb)%sec.chords.length];const ch=chordFromSym(sym);if(!ch)continue;
-      RH.forEach(([ci,rq,d])=>{const n=ch.notes[ci%ch.notes.length]+12;
-        tr.lead.push({t:start+bar*4+rq,dur:d,midi:n,vel:Math.round((rq===0?84:74)+rnd()*6)});});}
+    const km2=keyPc();let r5e=72+km2;if(r5e>77)r5e-=12;   // D5±완전4도 창 정규화
+    const PENTe=[0,2,4,7,9];
+    const pcsAt=b=>{const sym=sec.chords[Math.floor(b/cb)%sec.chords.length];const ch2=chordFromSym(sym);
+      return ch2?new Set(ch2.notes.map(n=>((n%12)+12)%12)):null;};
+    const clashE=(deg,pcs)=>{if(!pcs)return false;const p=(((r5e+deg)%12)+12)%12;
+      for(const cp of pcs)if((p-cp+12)%12===1)return true;return false;};
+    const safeE=(deg,pcs)=>{if(!clashE(deg,pcs))return deg;for(const d of PENTe)if(!clashE(d,pcs))return d;return deg;};
+    // 곡 고정 시그니처 콜 (1마디): 좁은 음역 · 강박 앵커 · 끝에 당김 서프라이즈 하나
+    const CALLS=[
+      [[0,0,0.9],[4,1,0.45],[2,1.5,0.45],[0,2,0.9],[7,3.25,0.7]],
+      [[4,0,0.45],[4,0.5,0.45],[7,1,0.9],[9,2,1.4],[7,3.5,0.5]],
+      [[9,0,0.9],[7,1,0.45],[9,1.5,0.45],[4,2,1.4],[2,3.5,0.5]],
+      [[0,0,0.45],[2,0.5,0.45],[4,1,0.9],[7,2,0.45],[4,2.5,0.45],[2,3,0.9]]
+    ];
+    const call=CALLS[HOOK.shape%CALLS.length];
+    // 리스폰스 = 콜과 같은 리듬, 끝 두 음만 하행 → 근음 (문답)
+    const resp=call.map(([d,rq,du],k)=>k===call.length-1?[0,rq,du+0.4]:(k===call.length-2?[2,rq,du]:[d,rq,du]));
+    for(let bar=0;bar<sec.bars;bar++){
+      const phrase=(bar%2===0)?call:resp;                 // 콜 → 리스폰스 교대
+      const lastBar=bar===sec.bars-1;
+      const pcs=pcsAt(bar);
+      phrase.forEach(([deg,rq,du])=>{
+        const dg=du>=0.9?safeE(deg,pcs):deg;              // 긴 음만 회피 → 윤곽 유지(같은 멜로디로 들림)
+        const fin=(lastBar&&rq>=3)?0:dg;                  // 섹션 끝: 근음 착지
+        const m=r5e+fin, v=Math.round((rq===0?90:80)+rnd()*6);
+        tr.lead.push({t:start+bar*4+rq,dur:du,midi:m,vel:v});
+        tr.lead.push({t:start+bar*4+rq,dur:du,midi:m+12,vel:Math.round(v*0.55)}); // 옥타브 유니즌 — 후크 두께
+      });
+    }
     return;}
   // 러닝: 장조 펜타토닉(도수 0·2·4·7·9) + 이끔음(-1) 접근 · 스타일별 성격 · 코드 인지
   if(en<=1)return;
@@ -1869,6 +1892,17 @@ function arrange(){
   ['bass','chords','pad','lead'].forEach(k=>clipOverlaps(tr[k])); // 오버랩 클리퍼 (범용)
   const tm=tempoSegments(headQ);
   if(tailQ){const L=tm.segs[tm.segs.length-1];L.endQ+=tailQ;tm.totalQ+=tailQ;tm.totalSec+=tailQ*L.spq;}
+  // ── 드랍 직전 무음 갭 (클럽 관례): 훅 진입 1박 전 전 트랙 컷 → 낙차가 임팩트를 만든다 (crash·fx는 남겨 라이저가 갭을 채움)
+  if(state.genre==='edm'||state.genre==='trap'||state.genre==='global'){
+    const cutT=['kick','snare','clap','hat','ohat','perc','bass','chords','pad','lead'];
+    sview.forEach(s=>{ if(s.type!=='Hook'||s.startQ<=0) return;
+      const g0=s.startQ-1, g1=s.startQ;
+      cutT.forEach(k=>{ if(!tr[k]) return;
+        tr[k]=tr[k].filter(n=>!(n.t>=g0&&n.t<g1));                       // 갭 안 시작 노트 제거
+        tr[k].forEach(n=>{ if(n.t<g0&&n.t+(n.dur||0)>g0) n.dur=g0-n.t; }); // 가로지르는 노트 클립
+      });
+    });
+  }
   MODEL={tracks:tr,sections:sview,tempoMap:tm.segs,totalQ:tm.totalQ,totalSec:tm.totalSec,bpm:+$('bpm').value};
   sview.forEach(s=>{s.startSec=qToSec(s.startQ);});
   return MODEL;
@@ -1950,7 +1984,7 @@ function audioInit(){if(ctx)return;
   DUCK={};
   ['drums','bass','chords','pad','lead','fx'].forEach(k=>{const gain=ctx.createGain();gain.gain.value=state.enabled[k]?1:0;BUS[k]=gain;
     let node=gain;
-    if(k==='bass'||k==='chords'||k==='pad'){const dk=ctx.createGain();dk.gain.value=1;gain.connect(dk);node=dk;DUCK[k]=dk;}
+    if(k==='bass'||k==='chords'||k==='pad'||k==='lead'){const dk=ctx.createGain();dk.gain.value=1;gain.connect(dk);node=dk;DUCK[k]=dk;}
     node.connect(master);});
   REV={};
   const ps=ctx.createGain();ps.gain.value=0.2;BUS.chords.connect(ps);ps.connect(reverb);REV.chords=ps;
@@ -2146,20 +2180,28 @@ function scheduleWindow(t0,winS,winE,fxFrom){fxFrom=fxFrom==null?winS:fxFrom;
     else if(curKit==='hooksong')supersaw('chords',at(n.t),ds(n),n.midi,n.vel,state.hookMode==='calm'?{voices:2,detune:2,lpf:2600,atk:0.005,rel:0.5,lvl:0.18,q:0.5,wave:'triangle'}:{voices:2,detune:4,lpf:3600,atk:0.003,rel:0.2,lvl:0.2,q:0.5,wave:'triangle'});
     else rhodes(at(n.t),ds(n),n.midi,n.vel);});
   sched(MODEL.tracks.pad,n=>supersaw('pad',at(n.t),ds(n),n.midi,n.vel,run?{voices:rSt.pad.voices,detune:rSt.pad.detune,lpf:rSt.pad.lpf,hpf:rSt.pad.hpf,shimmer:rSt.pad.shimmer,wave:rSt.pad.wave,atk:0.1,rel:0.4,lvl:0.26,q:0.6}:{voices:curKit==='edm'?6:4,detune:curKit==='edm'?14:8,lpf:1700,atk:0.1,rel:0.4,lvl:0.26,q:0.6}));
-  sched(MODEL.tracks.lead,n=>supersaw('lead',at(n.t),ds(n),n.midi,n.vel,
+  sched(MODEL.tracks.lead,n=>{
+    supersaw('lead',at(n.t),ds(n),n.midi,n.vel,
     run?{voices:rSt.lead.voices,detune:rSt.lead.detune,lpf:rSt.lead.lpf,hpf:rSt.lead.hpf,shimmer:rSt.lead.shimmer,wave:rSt.lead.wave,atk:0.005,rel:0.12,lvl:0.3,q:0.8}
     :curKit==='country'?{voices:2,detune:6,lpf:3800,atk:0.02,rel:0.18,lvl:0.28,q:0.7}                 // 피들풍
     :curKit==='retro'?{voices:3,detune:7,lpf:4600,atk:0.006,rel:0.15,lvl:0.28,q:0.7,wave:'square'}    // 80s 스퀘어
     :curKit==='hooksong'?(state.hookMode==='calm'?{voices:2,detune:3,lpf:3000,atk:0.04,rel:0.35,lvl:0.26,q:0.6,wave:'triangle'}:{voices:2,detune:5,lpf:5000,atk:0.005,rel:0.12,lvl:0.3,q:0.8,wave:'square'})
     :curKit==='kpop'?{voices:4,detune:10,lpf:5600,atk:0.004,rel:0.1,lvl:0.3,q:0.8,wave:'square'}      // 챈트 스퀘어
-    :{voices:5,detune:16,lpf:5200,atk:0.005,rel:0.12,lvl:0.3,q:0.8}));
+    :{voices:5,detune:16,lpf:5200,atk:0.005,rel:0.12,lvl:0.3,q:0.8});
+    // 음색 스택 (클럽 계열): 어택 플럭(발음) + 수퍼소(몸통) + 서브 사인(무게 — 원음에만, 옥타브 더블 제외)
+    if((curKit==='edm'||curKit==='global')&&!run){
+      supersaw('lead',at(n.t),Math.min(ds(n),0.09),n.midi,Math.round(n.vel*0.8),{voices:1,detune:0,lpf:6800,atk:0.001,rel:0.05,lvl:0.13,q:0.7,wave:'triangle'});
+      if(n.vel>=64) supersaw('lead',at(n.t),ds(n),n.midi-12,Math.round(n.vel*0.6),{voices:1,detune:0,lpf:420,atk:0.004,rel:0.1,lvl:0.15,q:0.5,wave:'sine'});
+    }
+  });
   // 사이드체인(킥 트리거) — pad/chords(+edm은 bass)
   const pumped=state.sections.some(s=>s.pump);
-  const depth=({edm:0.6,trap:0.42,boombap:0.22,lofi:0.18,country:0.1,kpop:0.5,retro:0.3,hooksong:state.hookMode==='calm'?0.05:0.15,running:(rSt&&rSt.pump)?0.55:0.4}[curKit]||0.2)*(pumped?1.15:1);
+  const depth=((curKit==='edm'&&state.edmStyle==='futurebass')?0.72:{edm:0.6,global:0.5,trap:0.42,boombap:0.22,lofi:0.18,country:0.1,kpop:0.5,retro:0.3,hooksong:state.hookMode==='calm'?0.05:0.15,running:(rSt&&rSt.pump)?0.55:0.4}[curKit]||0.2)*(pumped?1.15:1);
   const kq=MODEL.tracks.kick.filter(n=>n.t>=winS-1e-6&&n.t<winE-1e-6).map(n=>n.t);
-  const duck=g=>{if(!g)return;g.gain.cancelScheduledValues(t0);g.gain.setValueAtTime(1,t0);
-    kq.forEach(q=>{const tt=at(q),beat=60/secBpmAtQ(q);g.gain.setValueAtTime(Math.max(0.05,1-depth),tt);g.gain.linearRampToValueAtTime(1,tt+Math.min(0.3,beat*0.85));});};
-  duck(DUCK.pad);duck(DUCK.chords);if(curKit==='edm')duck(DUCK.bass);
+  const duck=(g,sc)=>{if(!g)return;sc=sc||1;g.gain.cancelScheduledValues(t0);g.gain.setValueAtTime(1,t0);
+    kq.forEach(q=>{const tt=at(q),beat=60/secBpmAtQ(q);g.gain.setValueAtTime(Math.max(0.05,1-depth*sc),tt);g.gain.linearRampToValueAtTime(1,tt+Math.min(0.3,beat*0.85));});};
+  duck(DUCK.pad,1);duck(DUCK.chords,1);if(curKit==='edm'||curKit==='global')duck(DUCK.bass,1);
+  if(curKit==='edm'||curKit==='trap'||curKit==='global')duck(DUCK.lead,0.55); // 리드도 얕게 눌러 펌핑에 붙임 (시그니처는 지키고 글루만)
   MODEL.tracks.fx.forEach(ev=>{const evEndQ=ev.t+(ev.dur||0);
     const inChunk=ev.t>=winS-1e-6&&ev.t<winE-1e-6;
     const spillIntoFirst=Math.abs(winS-fxFrom)<1e-6&&ev.t<winS&&evEndQ>winS-1e-6;
@@ -2512,7 +2554,7 @@ function applyState(o){if(!o||!o.sections)throw new Error('형식 오류');
   if(o.meter!=null&&$('meter')){$('meter').value=o.meter;}
   if(o.swing!=null){$('swing').value=o.swing;$('swingOut').textContent=o.swing;}
   if(o.palette)state.palette=Object.assign({vinyl:false,hiss:false,rain:false,sweep:false,riser:false,impact:false},o.palette);
-  if(o.enabled){state.enabled=Object.assign({drums:true,bass:true,chords:true,pad:true,lead:false,fx:true},o.enabled);
+  if(o.enabled){state.enabled=Object.assign({drums:true,bass:true,chords:true,pad:true,lead:true,fx:true},o.enabled);
     Object.keys(state.enabled).forEach(k=>{if(BUS[k])BUS[k].gain.value=state.enabled[k]?1:0;document.querySelector(`.ichip[data-k="${k}"]`)?.classList.toggle('on',state.enabled[k]);});}
   state.sections=o.sections;state.active=Math.min(o.active||0,state.sections.length-1);
   renderAll();$('panel3').classList.remove('collapsed');}
@@ -2774,7 +2816,7 @@ function doReset(){stop();state.genre='running';$('genre').value='running';$('ke
   state.groove='straight';if($('groove'))$('groove').value='straight';
   state.secCrash=false;if($('secCrash'))$('secCrash').checked=false;state.endSwell=false;
   if($('meter'))$('meter').value='4/4';
-  state.enabled={drums:true,bass:true,chords:true,pad:true,lead:false,fx:true};
+  state.enabled={drums:true,bass:true,chords:true,pad:true,lead:true,fx:true};
   ['drums','bass','chords','pad','lead','fx'].forEach(k=>{if(BUS[k])BUS[k].gain.value=state.enabled[k]?1:0;document.querySelector(`.ichip[data-k="${k}"]`)?.classList.toggle('on',state.enabled[k]);});
   state.targetSec=null;if($('tgtMin'))$('tgtMin').value='';if($('tgtSecIn'))$('tgtSecIn').value='';
   applyGenreDefaults(false);renderAll();
