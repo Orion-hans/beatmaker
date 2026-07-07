@@ -789,7 +789,7 @@ const atmosById=id=>ATMOS.find(a=>a.id===id);
 /* ===== 상태 ===== */
 // 시드 PRNG — 곡마다 고정 시드로 휴먼라이즈가 재생/미디에서 항상 동일
 function mul32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
-let state={genre:'running',seed:1,targetSec:null,runStyle:'fresh',edmStyle:'house',trapStyle:'trap',lofiStyle:'chillhop',boombapStyle:'eastcoast',globalStyle:'amapiano',beatSwitch:'off',hybrid:'off',groove:'straight',secCrash:false,endSwell:false,introStyle:'stack',endStyle:'finale',active:0,sections:[],
+let state={genre:'running',seed:1,targetSec:null,runStyle:'fresh',edmStyle:'house',trapStyle:'trap',halfBpm:false,lofiStyle:'chillhop',boombapStyle:'eastcoast',globalStyle:'amapiano',beatSwitch:'off',hybrid:'off',groove:'straight',secCrash:false,endSwell:false,introStyle:'stack',endStyle:'finale',active:0,sections:[],
   enabled:{drums:true,bass:true,chords:true,pad:true,lead:false,fx:true},
   palette:{vinyl:true,hiss:false,rain:true,sweep:false,riser:false,impact:false},
   loop:false};
@@ -964,6 +964,7 @@ function applyGenreDefaults(randomize,opt){opt=opt||{};
   if(!opt.keepTempo){let t=randomize?g.tempo[0]+Math.floor(Math.random()*(g.tempo[1]-g.tempo[0]+1)):Math.round((g.tempo[0]+g.tempo[1])/2);
     if(g.id==='edm'&&edmStyle().bpm)t=edmStyle().bpm;           // EDM: 하위 장르 기준 BPM
     if(g.id==='trap'&&trapStyle().bpm)t=trapStyle().bpm;        // Trap: 하위 장르 기준 BPM
+    if(g.id==='running'&&state.halfBpm)t=Math.max(30,Math.round(t/2)); // 하프타임 매칭 유지
     if(g.id==='lofi'&&lofiStyle().bpm)t=lofiStyle().bpm;        // Lo-Fi: 하위 스타일 기준 BPM
     if(g.id==='boombap'&&boombapStyle().bpm)t=boombapStyle().bpm; // 붐뱁: 하위 스타일 기준 BPM
     if(g.id==='global'&&globalStyle().bpm)t=globalStyle().bpm;    // 글로벌: 하위 스타일 기준 BPM
@@ -2502,10 +2503,10 @@ function exportOne(inst){arrange();EXPORT_PADQ=16;const P=gmProgs(),RN=recNames(
   dl(tk,`beat_${inst}_${MODEL.bpm}bpm.mid`);EXPORT_PADQ=0;}
 
 /* ===== 저장 / 불러오기 ===== */
-function serialize(){return{v:2,seed:state.seed,targetSec:state.targetSec,runStyle:state.runStyle,edmStyle:state.edmStyle,trapStyle:state.trapStyle,lofiStyle:state.lofiStyle,boombapStyle:state.boombapStyle,globalStyle:state.globalStyle,hookMode:state.hookMode,hookCycle:state.hookCycle,introStyle:state.introStyle,endStyle:state.endStyle,beatSwitch:state.beatSwitch,hybrid:state.hybrid,groove:state.groove,secCrash:state.secCrash,endSwell:state.endSwell,genre:state.genre,key:$('key').value,bpm:$('bpm').value,meter:($('meter')?$('meter').value:'4/4'),swing:$('swing').value,
+function serialize(){return{v:2,seed:state.seed,targetSec:state.targetSec,runStyle:state.runStyle,edmStyle:state.edmStyle,trapStyle:state.trapStyle,halfBpm:!!state.halfBpm,lofiStyle:state.lofiStyle,boombapStyle:state.boombapStyle,globalStyle:state.globalStyle,hookMode:state.hookMode,hookCycle:state.hookCycle,introStyle:state.introStyle,endStyle:state.endStyle,beatSwitch:state.beatSwitch,hybrid:state.hybrid,groove:state.groove,secCrash:state.secCrash,endSwell:state.endSwell,genre:state.genre,key:$('key').value,bpm:$('bpm').value,meter:($('meter')?$('meter').value:'4/4'),swing:$('swing').value,
   enabled:state.enabled,palette:state.palette,active:state.active,sections:state.sections};}
 function applyState(o){if(!o||!o.sections)throw new Error('형식 오류');
-  state.seed=o.seed||1;state.runStyle=o.runStyle||'fresh';state.edmStyle=o.edmStyle||'house';state.trapStyle=o.trapStyle||'trap';state.lofiStyle=o.lofiStyle||'chillhop';state.boombapStyle=o.boombapStyle||'eastcoast';state.globalStyle=o.globalStyle||'amapiano';state.hookMode=o.hookMode||'edu';state.hookCycle=o.hookCycle||4;state.introStyle=o.introStyle||'stack';state.endStyle=o.endStyle||'finale';state.beatSwitch=o.beatSwitch||'off';state.hybrid=o.hybrid||'off';state.groove=o.groove||'straight';state.secCrash=!!o.secCrash;state.endSwell=!!o.endSwell;if($('secCrash'))$('secCrash').checked=state.secCrash;$('introStyle').value=state.introStyle;$('endStyle').value=state.endStyle;if($('beatSwitch'))$('beatSwitch').value=state.beatSwitch;if($('hybrid'))$('hybrid').value=state.hybrid;if($('groove'))$('groove').value=state.groove;state.targetSec=o.targetSec||null;if(o.targetSec){$('tgtMin').value=Math.floor(o.targetSec/60);$('tgtSecIn').value=o.targetSec%60;}else{$('tgtMin').value='';$('tgtSecIn').value='';}state.genre=o.genre||'lofi';$('genre').value=state.genre;
+  state.seed=o.seed||1;state.runStyle=o.runStyle||'fresh';state.edmStyle=o.edmStyle||'house';state.trapStyle=o.trapStyle||'trap';state.halfBpm=!!o.halfBpm;state.lofiStyle=o.lofiStyle||'chillhop';state.boombapStyle=o.boombapStyle||'eastcoast';state.globalStyle=o.globalStyle||'amapiano';state.hookMode=o.hookMode||'edu';state.hookCycle=o.hookCycle||4;state.introStyle=o.introStyle||'stack';state.endStyle=o.endStyle||'finale';state.beatSwitch=o.beatSwitch||'off';state.hybrid=o.hybrid||'off';state.groove=o.groove||'straight';state.secCrash=!!o.secCrash;state.endSwell=!!o.endSwell;if($('secCrash'))$('secCrash').checked=state.secCrash;$('introStyle').value=state.introStyle;$('endStyle').value=state.endStyle;if($('beatSwitch'))$('beatSwitch').value=state.beatSwitch;if($('hybrid'))$('hybrid').value=state.hybrid;if($('groove'))$('groove').value=state.groove;state.targetSec=o.targetSec||null;if(o.targetSec){$('tgtMin').value=Math.floor(o.targetSec/60);$('tgtSecIn').value=o.targetSec%60;}else{$('tgtMin').value='';$('tgtSecIn').value='';}state.genre=o.genre||'lofi';$('genre').value=state.genre;
   if(o.key!=null){$('key').value=o.key;prevKeyPc=+o.key;}
   if(o.bpm!=null){$('bpm').value=o.bpm;$('bpmOut').textContent=o.bpm;}
   if(o.meter!=null&&$('meter')){$('meter').value=o.meter;}
@@ -2694,6 +2695,16 @@ function renderRunStyles(){const row=$('runStyleRow'),hint=$('runStyleHint');
         state.seed=((Math.random()*1e9)|0)||1;
         renderRunStyles();renderAll();flashMsg(st.name+' 스타일 — 코드·드럼·분위기 재료·사운드가 함께 바뀌었어요');};
       row.appendChild(c);});
+    if(isRun){
+    // 하프타임 매칭 (러너 표준): 케이던스÷2 BPM 곡 — 예: 170spm ↔ 85 BPM
+    const hf=document.createElement('div');hf.className='achip'+(state.halfBpm?' on':'');hf.textContent='½ 하프타임';
+    hf.title='케이던스÷2 BPM 매칭 — 두 걸음에 한 비트 (예: 170spm↔85 BPM). 이지·회복주에서 러너들이 선호';
+    hf.onclick=()=>{const b=$('bpm');let v=+b.value;
+      if(!state.halfBpm){state.halfBpm=true;v=Math.max(30,Math.round(v/2));}
+      else{state.halfBpm=false;v=Math.min(260,v*2);}
+      b.value=v;$('bpmOut').textContent=v;renderRunStyles();typeof updateLenTag==='function'&&updateLenTag();
+      flashMsg(state.halfBpm?('하프타임 — '+v+' BPM (두 걸음에 한 비트)'):('1:1 매칭 — '+v+' BPM'));};
+    row.appendChild(hf);}
   } else if(isEdm){
     Object.entries(EDMSTYLES).forEach(([id,st])=>{const c=document.createElement('div');
       c.className='achip'+(state.edmStyle===id?' on':'');c.textContent=st.name;
