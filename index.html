@@ -1017,7 +1017,11 @@ function timedSections(targetSec){
   const g=curGenre(),B=+$('bpm').value,spb=240/B;
   const total=Math.max(6,Math.round(targetSec/spb));
   const hookT=g.form==='edm'?'Drop':'Hook';
-  const k=total>720?4:total>240?2:1;                 // 장거리(LSD 60~90분)는 프레이즈 배율
+  const clubby=(g.id==='edm'||g.id==='trap'||g.id==='global');
+  // 클럽 장르: 막(Act) 구조 — 드랍 수는 2~3개 고정, 길이가 늘면 드랍·브레이크 자체가 길어짐 (3분=8마디 드랍 7개가 아니라 16마디 드랍 2개)
+  // 러닝·lofi·붐뱁: 반복 사이클이 장르 문법 (케이던스 유지·루프 문화) — 기존 배율 유지
+  const k=clubby ? Math.max(1,Math.min(4,Math.round(total*0.86/40)))
+                 : (total>720?4:total>240?2:1);      // 장거리(LSD 60~90분)는 프레이즈 배율
   const out=[];
   let intro=Math.max(2,Math.min(4*k,Math.round(total*0.07)));
   let outro=Math.max(2,Math.min(4*k,Math.round(total*0.07)));
@@ -1416,17 +1420,33 @@ function genLead(tr,g,sec,start,en,rnd,HOOK){
     const call=CALLS[HOOK.shape%CALLS.length];
     // 리스폰스 = 콜과 같은 리듬, 끝 두 음만 하행 → 근음 (문답)
     const resp=call.map(([d,rq,du],k)=>k===call.length-1?[0,rq,du+0.4]:(k===call.length-2?[2,rq,du]:[d,rq,du]));
+    // 프레이즈 스케일: 짧은 구간(≤11마디)=1마디 콜↔리스폰스 교대
+    // 긴 구간(12마디+)=4마디 문장 — ①콜 ②콜′(끝음 올려 되묻기) ③정점(옥타브 근음 악센트) ④여백 종지+픽업. 벨로시티도 문장 아치(평→상승→정점→이완)
+    const longSec=sec.bars>=12;
+    const UPD={0:2,2:4,4:7,7:9,9:12};                     // 펜타 위로 한 칸
+    const callLift=call.map((x,k2)=>k2===call.length-1?[(UPD[x[0]]!=null?UPD[x[0]]:x[0]),x[1],x[2]]:x); // 되묻기: 끝음만 위로
+    const maxD=Math.max.apply(null,resp.map(x=>x[0]));
+    const respPeak=resp.map(x=>x[0]===maxD?[12,x[1],x[2]]:x);                            // 정점: 최고음을 옥타브 근음으로
+    const respCad=[resp[0],[2,2,0.9],[0,3,1.2]];                                          // 종지: 사이를 덜어낸 여백 + 근음 롱
+    const respLand=resp.map(([d,rq,du],k2)=>k2===resp.length-1?[0,rq,du+0.6]:[d,rq,du]); // (짧은 구간용) 문장 끝 근음 길게
     for(let bar=0;bar<sec.bars;bar++){
-      const phrase=(bar%2===0)?call:resp;                 // 콜 → 리스폰스 교대
+      const pos=bar%4;
+      const phrase=longSec ? [call,callLift,respPeak,respCad][pos] : ((bar%2===0)?call:resp);
       const lastBar=bar===sec.bars-1;
       const pcs=pcsAt(bar);
+      const pOff=longSec?[0,2,6,-4][pos]:0;               // 문장 다이내믹 아치
       phrase.forEach(([deg,rq,du])=>{
         const dg=du>=0.9?safeE(deg,pcs):deg;              // 긴 음만 회피 → 윤곽 유지(같은 멜로디로 들림)
         const fin=(lastBar&&rq>=3)?0:dg;                  // 섹션 끝: 근음 착지
-        const m=r5e+fin, v=Math.round((rq===0?90:80)+rnd()*6);
+        const m=r5e+fin, v=Math.round((rq===0?90:80)+pOff+rnd()*6);
         tr.lead.push({t:start+bar*4+rq,dur:du,midi:m,vel:v});
         tr.lead.push({t:start+bar*4+rq,dur:du,midi:m+12,vel:Math.round(v*0.55)}); // 옥타브 유니즌 — 후크 두께
       });
+      if(longSec&&pos===3&&!lastBar){                     // 픽업: 종지 여백 끝에서 다음 문장으로 숨을 걸침
+        const pv=Math.round(66+rnd()*5);
+        tr.lead.push({t:start+bar*4+3.75,dur:0.3,midi:r5e+4,vel:pv});
+        tr.lead.push({t:start+bar*4+3.75,dur:0.3,midi:r5e+16,vel:Math.round(pv*0.5)});
+      }
     }
     return;}
   // 러닝: 장조 펜타토닉(도수 0·2·4·7·9) + 이끔음(-1) 접근 · 스타일별 성격 · 코드 인지
