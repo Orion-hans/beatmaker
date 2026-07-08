@@ -342,7 +342,7 @@ button,select,.achip,.st,.seg,.ptoggle,.chk{touch-action:manipulation;}
       <button class="sm" data-inst="lead">리드</button>
     </div>
     <label class="chk" style="margin-top:10px;"><input type="checkbox" id="noSheet"> 송시트(.txt) 저장 안 함</label>
-    <p class="tip">트랙별 .mid로 내보내 로직 등 DAW에서 음원을 입히세요. 트랙 이름·구간 마커·템포맵이 함께 담기고, 드럼은 표준 GM 맵(킥36·스네어38·클랩39·하햇42/46·크래시49), 벨로시티에 강약·고스트·필이 그대로 실립니다. 빌드업 구간엔 패드 트랙에 CC74(필터 열림) 오토메이션이 기록되고, 러닝 스타일별로 GM 악기(청량=크리스탈, 락=오버드라이브 기타, 신스웨이브=스퀘어 리드 등)가 지정돼 로직에서 열자마자 의도한 음색 계열로 들려요. 물론 최종 음색(시머·리버브·질감)은 로직에서 음원을 입혀 완성하는 영역입니다. 분위기(바이닐·파도·싱잉볼 등)는 소리 자체는 미리듣기 전용이지만, 전체 내보내기에 'FX Cues' 가이드 트랙이 포함돼 각 이벤트의 위치·길이가 노트와 텍스트로 찍힙니다 — 로직에서 그 자리에 원하는 샘플을 얹으세요. 그리고 <b>전체 트랙</b>으로 내보내면 <b>송시트(.txt)</b>가 함께 저장돼요 — 조성·빠르기·전체 구조·구간별 코드·제작 악기 메모를 총보 머리말처럼 한눈에 정리해, 멜로디 작업 전 곡을 조망할 수 있습니다.</p>
+    <p class="tip">트랙별 .mid로 내보내 로직 등 DAW에서 음원을 입히세요. 트랙 이름·구간 마커·템포맵이 함께 담기고, 드럼은 표준 GM 맵(킥36·스네어38·클랩39·하햇42/46·크래시49), 벨로시티에 강약·고스트·필이 그대로 실립니다. 빌드업 구간엔 패드 트랙에 CC74(필터 열림) 오토메이션이 기록되고, GM 프로그램 넘버가 음색 힌트로 기록됩니다(청량=크리스탈, 락=오버드라이브 기타 등) — 단, 로직은 미디를 열어도 음원을 자동으로 불러오지 않으니, 트랙 이름을 검색어 삼아 라이브러리에서 음원을 직접 얹으세요. 최종 음색(시머·리버브·질감)도 로직에서 완성하는 영역입니다. 분위기(바이닐·파도·싱잉볼 등)는 소리 자체는 미리듣기 전용이지만, 전체 내보내기에 효과별 <b>FX 가이드 트랙</b>이 포함됩니다 — 지속형(비·히스·바이닐·파도·바람·필터스윕)은 <b>[FX-bed]</b> 트랙에 긴 리전 하나로 합쳐 나오니 앰비언스 샘플 1개를 깔고 루프하면 되고, 원샷(임팩트·라이저·싱잉볼·리버스크래시·서브드롭)은 <b>[FX-hit]</b> 트랙에 그 지점마다 큐로 찍히니 원샷을 얹으세요. 그리고 <b>전체 트랙</b>으로 내보내면 <b>송시트(.txt)</b>가 함께 저장돼요 — 조성·빠르기·전체 구조·구간별 코드·제작 악기 메모를 총보 머리말처럼 한눈에 정리해, 멜로디 작업 전 곡을 조망할 수 있습니다.</p>
     </div>
   </div>
 
@@ -2380,7 +2380,7 @@ function drumMidiNotes(){const raw=[];[...LANES,'crash'].forEach(l=>MODEL.tracks
       n.dur=Math.min(0.1,Math.max(0.005,gap-0.003));notes.push(n);});
   });
   return notes;}
-function drumMidiTrack(){return noteTrack(drumMidiNotes(),9,null,true,'Drums - '+recNames().drums,null,recNames().drums);}
+function drumMidiTrack(){return noteTrack(drumMidiNotes(),9,null,true,'Drums - '+recNames().drums+'  |  '+logicPatches().drums,null,recNames().drums);}
 const GMNAME={1:'Bright Acoustic Piano',4:'Electric Piano 1',12:'Marimba',16:'Drawbar Organ',25:'Acoustic Guitar (steel)',29:'Overdriven Guitar',30:'Distortion Guitar',
   32:'Acoustic Bass',33:'Electric Bass (finger)',34:'Electric Bass (pick)',38:'Synth Bass 1',48:'String Ensemble 1',62:'Synth Brass 1',
   73:'Flute',80:'Lead 1 (Square)',81:'Lead 2 (Sawtooth)',85:'Lead 6 (Voice)',88:'Pad 1 (New Age)',89:'Pad 2 (Warm)',90:'Pad 3 (Polysynth)',
@@ -2438,6 +2438,30 @@ function recNames(){
   const ov=key?SUB[state.genre+'.'+state[key]]:null;
   return ov?Object.assign({},base,ov):base;
 }
+/* 로직 스톡 음원 매핑 — 트랙 이름·송시트에 '무엇을 검색해 얹을지'를 직접 박음(자동 로드는 불가, 검색 힌트).
+   플러그인명은 버전 무관 고정, 뒤 서술어는 검색 힌트. ⚠(no stock)은 스톡 미보유 → 대안 표기. */
+function logicPatches(){
+  const R={
+    lofi:{drums:'Drum Machine Designer (+Bitcrush/Vinyl)',bass:'Retro Synth: round sub',chords:'Vintage Electric Piano (Rhodes +tape)',pad:'Alchemy: warm pad',lead:'Alchemy: soft lead'},
+    boombap:{drums:'Drum Kit Designer: SoCal/Roots (+room)',bass:'Studio Bass: finger bass',chords:'Vintage Electric Piano (Rhodes/Wurli)',pad:'Alchemy: warm pad',lead:'Alchemy: soft lead'},
+    trap:{drums:'Drum Machine Designer: trap kit',bass:'Quick Sampler: 808 (Mono+Glide)',chords:'Alchemy: dark bells/keys',pad:'Alchemy: dark pad',lead:'Retro Synth: pluck'},
+    edm:{drums:'Drum Machine Designer: house/techno',bass:'ES2: saw bass',chords:'Alchemy: supersaw',pad:'Alchemy: supersaw pad',lead:'Alchemy: supersaw lead'},
+    global:{drums:'Drum Machine Designer: perc/shaker',bass:'Sampler: log-drum sample (no stock)',chords:'Vintage Electric Piano / B3 (7ths)',pad:'Alchemy: warm analog pad',lead:'Vintage Mellotron flute / Alchemy whistle'},
+    country:{drums:'Drum Kit Designer: acoustic (+tamb.)',bass:'Sampler: acoustic/upright bass',chords:'Sampler: steel-string acoustic',pad:'Studio Strings (pedal steel=sample)',lead:'Studio Strings solo (fiddle=sample)'},
+    kpop:{drums:'Drum Machine Designer: modern pop clap',bass:'ES2: punchy synth bass',chords:'ES2/Alchemy: synth brass stab',pad:'Alchemy: bright polysynth pad',lead:'Retro Synth: square (chop=sample)'},
+    retro:{drums:'Drum Machine Designer: LinnDrum (+gate)',bass:'Studio Bass: finger funk',chords:'Vintage EP / Retro Synth FM (7ths)',pad:'Alchemy/ES2: analog warm pad',lead:'Retro Synth: square lead'},
+    hooksong:state.hookMode==='calm'
+      ?{drums:'Drum Kit Designer: brush/mallet',bass:'Retro Synth: sine sub',chords:'Sampler: music box / warm EP',pad:'Alchemy: warm pad',lead:'Vintage Mellotron / Woodwinds: flute'}
+      :{drums:'Drum Machine Designer: bright kids kit',bass:'Retro Synth: round synth bass',chords:'Studio Piano / Sampler: marimba',pad:'Alchemy: simple pad',lead:'Retro Synth: square lead'}
+  };
+  const RUN={
+    fresh:{drums:'Drum Machine Designer: clean dance',bass:'ES2: mid synth bass',chords:'Alchemy: crystal/glassy pluck',pad:'Alchemy: airy shimmer pad',lead:'Retro Synth: bright pluck'},
+    power:{drums:'Drum Machine Designer: big room',bass:'ES2: pumped saw bass',chords:'Alchemy: polysynth stab (arp)',pad:'Alchemy: wide supersaw pad',lead:'ES2/Alchemy: hard saw lead'},
+    rock:{drums:'Drum Kit Designer: rock kit',bass:'Studio Bass: pick bass',chords:'Amp Designer (real gtr; no stock MIDI)',pad:'Studio Strings / Vintage B3',lead:'Amp Designer (real gtr; no stock MIDI)'},
+    synthwave:{drums:'Drum Machine Designer: LinnDrum',bass:'Retro Synth: analog octave bass',chords:'ES2/Alchemy: analog polysynth',pad:'Alchemy: analog warm pad',lead:'Retro Synth: square lead'}
+  };
+  return state.genre==='running'?(RUN[state.runStyle]||RUN.fresh):(R[state.genre]||R.lofi);
+}
 /* GM 프로그램 — 스타일 의도가 로직 첫 재생부터 들리게 (음원 교체 전 가이드용) */
 function gmProgs(){
   if(state.genre==='running'){
@@ -2457,23 +2481,73 @@ function gmProgs(){
   if(state.genre==='global')return ({amapiano:{bass:38,chords:4,pad:89,lead:73},afrobeats:{bass:33,chords:4,pad:89,lead:12},garage:{bass:38,chords:16,pad:89,lead:85},jersey:{bass:38,chords:1,pad:90,lead:80},afrohouse:{bass:38,chords:16,pad:89,lead:85},bailefunk:{bass:38,chords:1,pad:90,lead:80},speedgarage:{bass:38,chords:16,pad:89,lead:85}}[state.globalStyle])||{bass:38,chords:4,pad:89,lead:81};
   return {bass:38,chords:4,pad:90,lead:81};}
 const FXNOTE={vinyl:36,hiss:37,rain:38,ocean:39,wind:40,sweep:41,riser:43,impact:45,bowl:46,revcrash:47,subdrop:48};
-function fxCueTrack(){const PPQ=480,ev=[];
-  // 같은 분위기 타입(같은 가이드 노트) 겹침 방지 — 다음 동일 큐 직전까지로 길이 클립(가이드 트랙 가독성·초킹 방지)
+// FX 라벨 — 로직 트랙 이름(FF03)에 그대로 뜨게. 효과별로 트랙을 분리해 무슨 자리인지 이름만 봐도 알게.
+const FXLABEL={vinyl:'Vinyl Crackle',hiss:'Tape Hiss',rain:'Rain',ocean:'Ocean Waves',wind:'Wind',sweep:'Filter Sweep',riser:'Riser',impact:'Impact / Boom',bowl:'Singing Bowl',revcrash:'Reverse Crash',subdrop:'Sub Drop'};
+function fxCueTracks(){const PPQ=480,CUE=60,tracks=[];   // 타입별 별도 MTrk. 지속형=긴 리전으로 합침, 원샷=개별 큐
+  const BED={};(typeof ATMOS!=='undefined'?ATMOS:[]).forEach(a=>{if(a.cont)BED[a.id]=true;});  // vinyl/hiss/rain/ocean/wind/sweep
   const byType={};MODEL.tracks.fx.forEach(e=>{if(FXNOTE[e.type]==null)return;(byType[e.type]=byType[e.type]||[]).push(e);});
-  Object.keys(byType).forEach(ty=>{const note=FXNOTE[ty];const a=byType[ty].slice().sort((x,y)=>x.t-y.t);
-    const mg=[];a.forEach(e=>{const last=mg[mg.length-1];if(last&&e.t-last.t<0.012){last.amt=Math.max(last.amt||0.8,e.amt||0.8);}else mg.push(Object.assign({},e));});  // 근접 중복 병합
-    mg.forEach((e,i)=>{const nx=mg[i+1];let dq=e.dur||1;if(nx)dq=Math.min(dq,Math.max(0.005,nx.t-e.t-0.003));   // 다음 동일 큐 직전까지 클립
-      ev.push({t:Math.round((e.t+EXPORT_PADQ)*PPQ),kind:'txt',text:ty});
-      ev.push({t:Math.round((e.t+EXPORT_PADQ)*PPQ),kind:1,midi:note,vel:Math.min(127,Math.round((e.amt||0.8)*110))});
-      ev.push({t:Math.round((e.t+EXPORT_PADQ+dq)*PPQ),kind:0,midi:note});});});
-  ev.sort((a,b)=>a.t-b.t||(a.kind==='txt'?-1:a.kind===0?0:1));
-  let body=[],last=0;
-  body.push(...vlq(0),...metaText(0x03,'FX Cues (guide - replace with samples)'));
-  body.push(...vlq(0),...metaText(0x04,'FX placement guide'));
-  ev.forEach(e=>{body.push(...vlq(e.t-last));last=e.t;
-    if(e.kind==='txt')body.push(...metaText(0x01,e.text));
-    else if(e.kind===1)body.push(0x90|14,e.midi,e.vel);else body.push(0x80|14,e.midi,0);});
-  body.push(...vlq(0),0xFF,0x2F,0x00);return [...sbm('MTrk'),...u32(body.length),...body];}
+  Object.keys(byType).forEach(ty=>{
+    const a=byType[ty].slice().sort((x,y)=>x.t-y.t);
+    const label=FXLABEL[ty]||ty, isBed=!!BED[ty];
+    let segs=[];   // {s,e,amt} in quarter-notes
+    if(isBed){
+      // 지속형: 이어지는(또는 1마디 이내로 붙는) 구간을 하나의 리전으로 병합 → 샘플 하나 깔고 루프
+      a.forEach(e=>{const s=e.t, en=e.t+(e.dur||4), amt=e.amt||0.7, last=segs[segs.length-1];
+        if(last&&s<=last.e+4){last.e=Math.max(last.e,en);last.amt=Math.max(last.amt,amt);}
+        else segs.push({s,e:en,amt});});
+    }else{
+      // 원샷: 근접 중복만 병합, 각자 짧은 큐(다음 큐 직전까지 최대 1박)
+      const mg=[];a.forEach(e=>{const last=mg[mg.length-1];if(last&&e.t-last.t<0.012){last.amt=Math.max(last.amt||0.8,e.amt||0.8);}else mg.push(Object.assign({},e));});
+      mg.forEach((e,i)=>{const nx=mg[i+1];let dq=e.dur||1;if(nx)dq=Math.min(dq,Math.max(0.005,nx.t-e.t-0.003));
+        segs.push({s:e.t,e:e.t+dq,amt:e.amt||0.8});});
+    }
+    const ev=[];
+    segs.forEach(g=>{ev.push({t:Math.round((g.s+EXPORT_PADQ)*PPQ),on:1,vel:Math.min(127,Math.round(g.amt*110))});
+      ev.push({t:Math.round((g.e+EXPORT_PADQ)*PPQ),on:0,vel:0});});
+    ev.sort((x,y)=>x.t-y.t||x.on-y.on);
+    const trackName=isBed?('[FX-bed] '+label+' (loop 1 sample)'):('[FX-hit] '+label);
+    const desc=isBed?(label+' — 리전 전체에 앰비언스 1개 깔고 루프'):(label+' — 이 지점에 원샷 얹기');
+    let body=[],last=0;
+    body.push(...vlq(0),...metaText(0x03,trackName));                       // 트랙 이름 = 효과명 (로직에 표시됨)
+    body.push(...vlq(0),...metaText(0x04,desc));
+    ev.forEach(e=>{body.push(...vlq(e.t-last));last=e.t;
+      if(e.on)body.push(0x90|14,CUE,e.vel);else body.push(0x80|14,CUE,0);});
+    body.push(...vlq(0),0xFF,0x2F,0x00);
+    tracks.push([...sbm('MTrk'),...u32(body.length),...body]);
+  });
+  return tracks;}
+/* 믹스 시작점 — 후반에서 매번 새로 안 짜도 되게 역할별 출발점 + 장르 캐릭터. 절대값 아닌 '귀로 맞추기 전 기준'. */
+function mixHints(){
+  const g=state.genre;
+  const ROLE=[  // [트랙, 팬, 레벨(드럼기준), 리버브 센드, 채널스트립 기본]
+    ['Drums','C','기준 0','짧은 Room 5–10%','버스 글루 comp 2:1 · 킥/스네어 트랜지언트'],
+    ['Bass','C (모노)','−3~−5','Dry 0%','HPF 30Hz · 120Hz 이하 모노 · 킥에 사이드체인'],
+    ['Chords','L30 또는 와이드','−7~−9','Plate 15–25%','HPF 120Hz · 300–500Hz 머드 −2dB'],
+    ['Pad','와이드 (L/R 100)','−12~−15','Hall/Long 30–40%','HPF 150Hz · 상단 LPF · 살짝 사이드체인'],
+    ['Lead','C 또는 살짝 L/R','−6~−8','Plate 15% + 슬랩 딜레이','3–5kHz 존재감 · 필요시 디에서']
+  ];
+  const CHAR={
+    lofi:'전체 테이프/바이닐 새추 + LPF 10–12kHz, 와우&플러터. 드럼 더스티, 사이드체인 은은하게.',
+    boombap:'SP풍 크런치·새추 드럼, 베이스 모노 타이트, 키 필터링. 마스터는 살짝만.',
+    trap:'808 크게·모노·킥에 강한 사이드체인, 하햇 밝게, 애드립엔 와이드 리버브 스로우.',
+    edm:'킥에 강한 사이드체인 펌핑, 슈퍼쏘 와이드, 빅룸 리버브, 마스터 리미터 푸시.',
+    global:'로그드럼 베이스 전면, 퍼커션 와이드, 키 따뜻하게, 그루브 컴프 부드럽게.',
+    country:'어쿠스틱 자연스럽게·룸 리버브, 최소 처리, 젠틀 컴프, 밝지만 따뜻하게.',
+    kpop:'상단 밝게, 드럼 타이트·펀치(패러렐 컴프), 신스 와이드, 마스터 라우드.',
+    retro:'아날로그 웜·게이트 스네어 리버브, 키에 코러스, 테이프 새추, 스테레오 넓게.',
+    hooksong: state.hookMode==='calm'
+      ? '부드럽게·공간 넓게, 롱 리버브, 낮은 레벨, 과한 처리 금지.'
+      : '명료하게·드라이한 편, 센터 중심, 가사 전달력 우선.'
+  };
+  const RUNCHAR={
+    fresh:'에너지 사이드체인, 밝게, 와이드, 라우드. 베이스 150–280Hz 유지(러닝 그루브·골전도 대역).',
+    power:'강한 펌핑·빅룸, 하드 쏘우 와이드, 마스터 강하게.',
+    rock:'실앰프·룸 드럼, 베이스 타이트, 리버브 적게, 기타 미드 전면.',
+    synthwave:'아날로그 코러스·게이트 리버브, 와이드, 네온 브라이트.'
+  };
+  const char = g==='running' ? (RUNCHAR[state.runStyle]||RUNCHAR.fresh) : (CHAR[g]||CHAR.lofi);
+  return {ROLE, char};
+}
 function buildSongSheet(){
   const NAMES=['C','D♭','D','E♭','E','F','F♯','G','A♭','A','B♭','B'];
   let mi=0;try{const hc=chordFromSym(state.sections[0].chords[0]);
@@ -2514,14 +2588,25 @@ function buildSongSheet(){
     L.push('• '+sec.type+vv+' : '+sec.chords.join(' - ')+(sec.chordBars>1?'  ('+sec.chordBars+'마디/코드)':''));});
   L.push('');
   L.push('─── 제작 메모 (LOGIC) ───');
-  const RN=recNames();
-  L.push('Drums : '+RN.drums);
-  L.push('Bass  : '+RN.bass);
-  L.push('Chords: '+RN.chords);
-  L.push('Pad   : '+RN.pad);
-  L.push('Lead  : '+RN.lead);
+  L.push('  트랙        음색 의도                →  로직에서 검색해 얹을 음원');
+  const RN=recNames(),LP=logicPatches();
+  const row=(lbl,r,l)=>L.push('  '+lbl.padEnd(6)+': '+String(r).padEnd(28)+' →  '+l);
+  row('Drums',RN.drums,LP.drums);
+  row('Bass',RN.bass,LP.bass);
+  row('Chords',RN.chords,LP.chords);
+  row('Pad',RN.pad,LP.pad);
+  row('Lead',RN.lead,LP.lead);
   L.push('');
-  L.push('※ MIDI 가이드 — 로직에서 위 악기명으로 음원 교체 후 멜로디 완성.');
+  L.push('※ 로직은 미디를 열어도 음원을 자동 로드하지 않습니다 — 트랙 이름을 검색어 삼아 라이브러리(Y)에서 위 음원을 얹으세요.');
+  L.push('※ (no stock) 표기는 로직 기본 음원에 없는 것 — 샘플/오디오로 대체.');
+  L.push('');
+  L.push('─── 믹스 시작점 (MIX) ───');
+  const MH=mixHints();
+  MH.ROLE.forEach(r=>L.push('  '+r[0].padEnd(6)+': 팬 '+r[1]+' | 레벨 '+r[2]+' | 리버브 '+r[3]+' | 스트립 '+r[4]));
+  L.push('');
+  L.push('장르 캐릭터: '+MH.char);
+  L.push('※ 빌드업 패드엔 CC74(필터 열림)가 이미 기록됨 — CC74에 반응하는 악기라야 실제로 열립니다.');
+  L.push('※ 위 수치는 절대값이 아니라 귀로 맞추기 전 출발점 — 곡에 맞게 조정하세요.');
   L.push('※ MIDI 앞뒤에 4마디 편집 여백 포함 — 구간 위치는 마커 기준(위 시각은 여백 제외 곡 자체 시각).');
   L.push('※ 조성·템포·마커는 글로벌 트랙에 포함됨.');
   return L.join('\n');
@@ -2550,21 +2635,21 @@ function guideTracks(){
     mk('[GUIDE] Vocal / Organic Layer','보컬 찹·실악기 등 오가닉 레이어 — 2026 트렌드는 기술 과잉에서 벗어난 유기적 질감. 여기에 실소스를.'));
   return L;
 }
-function exportAll(){arrange();EXPORT_PADQ=16;const P=gmProgs(),RN=recNames();  // 앞뒤 4마디 편집 여백
+function exportAll(){arrange();EXPORT_PADQ=16;const P=gmProgs(),RN=recNames(),LP=logicPatches();  // 앞뒤 4마디 편집 여백
   const tr=[tempoTrack(),drumMidiTrack(),
-    noteTrack(MODEL.tracks.bass,1,P.bass,false,'Bass - '+RN.bass,null,RN.bass+' | GM: '+gmName(P.bass)),
-    noteTrack(MODEL.tracks.chords,2,P.chords,false,'Chords - '+RN.chords,null,RN.chords+' | GM: '+gmName(P.chords))];
-  if(MODEL.tracks.pad.length)tr.push(noteTrack(MODEL.tracks.pad,3,P.pad,false,'Pad - '+RN.pad,padCC(),RN.pad+' | GM: '+gmName(P.pad)));
-  if(MODEL.tracks.lead.length)tr.push(noteTrack(MODEL.tracks.lead,4,P.lead,false,'Lead - '+RN.lead,null,RN.lead+' | GM: '+gmName(P.lead)));
-  if(MODEL.tracks.fx.length)tr.push(fxCueTrack());
+    noteTrack(MODEL.tracks.bass,1,P.bass,false,'Bass - '+RN.bass+'  |  '+LP.bass,null,RN.bass+' | GM: '+gmName(P.bass)),
+    noteTrack(MODEL.tracks.chords,2,P.chords,false,'Chords - '+RN.chords+'  |  '+LP.chords,null,RN.chords+' | GM: '+gmName(P.chords))];
+  if(MODEL.tracks.pad.length)tr.push(noteTrack(MODEL.tracks.pad,3,P.pad,false,'Pad - '+RN.pad+'  |  '+LP.pad,padCC(),RN.pad+' | GM: '+gmName(P.pad)));
+  if(MODEL.tracks.lead.length)tr.push(noteTrack(MODEL.tracks.lead,4,P.lead,false,'Lead - '+RN.lead+'  |  '+LP.lead,null,RN.lead+' | GM: '+gmName(P.lead)));
+  fxCueTracks().forEach(t=>tr.push(t));                        // 효과별 [FX] 가이드 트랙 (로직에 이름으로 보임)
   guideTracks().forEach(t=>tr.push(t));                        // 2026 오가닉 트렌드 가이드 트랙
   const stem=`beat_${state.genre==='running'?'running-'+state.runStyle:state.genre}_${MODEL.bpm}bpm`;
   dl(tr,stem+'.mid');EXPORT_PADQ=0;
   if(!$('noSheet')||!$('noSheet').checked)setTimeout(()=>dlText(buildSongSheet(),stem+'_송시트.txt'),400);}
-function exportOne(inst){arrange();EXPORT_PADQ=16;const P=gmProgs(),RN=recNames();let tk;   // 앞뒤 4마디 편집 여백
+function exportOne(inst){arrange();EXPORT_PADQ=16;const P=gmProgs(),RN=recNames(),LP=logicPatches();let tk;   // 앞뒤 4마디 편집 여백
   if(inst==='drums')tk=[tempoTrack(),drumMidiTrack()];
   else{const c={bass:[1,P.bass,'Bass'],chords:[2,P.chords,'Chords'],pad:[3,P.pad,'Pad'],lead:[4,P.lead,'Lead']}[inst];
-    tk=[tempoTrack(),noteTrack(MODEL.tracks[inst],c[0],c[1],false,c[2]+' - '+RN[inst],inst==='pad'?padCC():null,RN[inst]+' | GM: '+gmName(c[1]))];}
+    tk=[tempoTrack(),noteTrack(MODEL.tracks[inst],c[0],c[1],false,c[2]+' - '+RN[inst]+'  |  '+LP[inst],inst==='pad'?padCC():null,RN[inst]+' | GM: '+gmName(c[1]))];}
   dl(tk,`beat_${inst}_${MODEL.bpm}bpm.mid`);EXPORT_PADQ=0;}
 
 /* ===== 저장 / 불러오기 ===== */
