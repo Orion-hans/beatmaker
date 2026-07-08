@@ -227,7 +227,7 @@ button,select,.achip,.st,.seg,.ptoggle,.chk{touch-action:manipulation;}
   </header>
 
   <div class="panel" id="panel1">
-    <div class="plabel ptoggle"><span class="n">01</span> 컨셉 — 장르·조성·박자·분위기 <span class="chev">▾</span></div>
+    <div class="plabel ptoggle"><span class="n">01</span> 만들기 — 컨셉·시간·구성 설정 후 생성 <span class="chev">▾</span></div>
     <div class="pbody">
     <div class="grid grid-top">
       <div class="field"><label>장르</label><select id="genre"></select></div>
@@ -256,26 +256,10 @@ button,select,.achip,.st,.seg,.ptoggle,.chk{touch-action:manipulation;}
       <button class="sm" id="clearTime">해제</button>
       <span class="mini" id="lenTag" style="white-space:nowrap;"></span>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px;">
-      <button class="primary" id="gen">🎲 비트생성</button>
-      <button id="flowRand">🔀 구조 랜덤</button>
-      <button id="curvePreset">⛰ 워밍→쿨 곡선</button>
-      <button id="rndChords">🎲 코드 랜덤</button>
-    </div>
     <div class="submini" style="margin:16px 0 7px;">분위기 재료 <span class="mini" style="color:var(--muted);font-weight:400;">— 켜두면 구간마다 적용</span></div>
     <div class="atmos atmos-compact" id="atmosPal"></div>
-    </div>
-  </div>
 
-  <div class="panel collapsed" id="panelGen">
-    <div class="plabel ptoggle"><span class="n">02</span> 생성 — 길이 정하고 곡 만들기 <span class="chev">▾</span></div>
-    <div class="pbody">
-    <div id="timedBarSlot"></div>
-    <div class="btnrow">
-      <button class="primary" id="fullRand">🎼 생성</button>
-      <label class="chk" style="margin-right:2px;"><input type="checkbox" id="rndTempoVar"> 템포 변화 포함</label>
-      <button id="reset">초기화</button>
-    </div>
+    <div class="submini" style="margin:18px 0 7px;">구성 설정 <span class="mini" style="color:var(--muted);font-weight:400;">— 생성에 반영돼요 (시작·엔딩·전환·그루브)</span></div>
     <div class="btnrow" style="margin-top:10px;">
       <span class="mini">시작
         <select id="introStyle" class="io-sel">
@@ -314,6 +298,21 @@ button,select,.achip,.st,.seg,.ptoggle,.chk{touch-action:manipulation;}
         </select></span>
       <label class="mini" style="display:inline-flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="secCrash"> 구간 시작 크래쉬</label>
     </div>
+
+    <div class="submini" style="margin:20px 0 8px;border-top:1px solid var(--line);padding-top:14px;">② 생성 <span class="mini" style="color:var(--muted);font-weight:400;">— 위 설정을 모두 반영해 곡을 만들어요</span></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px;">
+      <button class="primary" id="gen" style="font-size:16px;padding:13px 24px;">🎲 새 곡 생성</button>
+      <span class="mini" style="color:var(--muted);">↳ 지금 곡 유지하고 부분만:</span>
+      <button id="flowRand" class="sm">🔀 구조만</button>
+      <button id="rndChords" class="sm">🎹 코드만</button>
+      <button id="curvePreset" class="sm">⛰ 강도 곡선</button>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0 6px;">
+      <button id="fullRand" class="sm" style="border-style:dashed;">🎰 전부 랜덤</button>
+      <label class="chk" style="font-size:12px;"><input type="checkbox" id="rndTempoVar"> 템포 변화 포함</label>
+      <span class="mini" style="color:var(--muted);">— 설정 무시, 전부 무작위</span>
+    </div>
+    <div class="mini" style="color:var(--muted);margin:0;line-height:1.5;">🎲 새 곡 생성 = 위 설정을 <b>반영</b>해 새로. 🎰 전부 랜덤 = 설정 무시하고 전부 무작위. 나머지는 <b>지금 곡 유지</b>한 채 부분만 다시.</div>
     </div>
   </div>
 
@@ -2676,8 +2675,7 @@ $('meter').onchange=()=>{applyMeter();renderAll();};
 $('swing').addEventListener('change',()=>renderEditor());
 $('swing').oninput=e=>{$('swingOut').textContent=e.target.value;};
 $('key').onchange=e=>{const newPc=+e.target.value;let d=newPc-prevKeyPc;if(d>6)d-=12;if(d<-6)d+=12;if(d)state.sections.forEach(s=>s.chords=s.chords.map(c=>c?transposeSym(c,d):c));prevKeyPc=newPc;renderEditor();};
-$('genre').onchange=e=>{state.genre=e.target.value;applyGenreDefaults(false);renderRunStyles();renderHookOpts();renderAll();$('panelGen').classList.remove('collapsed');$('panel3').classList.remove('collapsed');};
-$('gen').onclick=genBeat;
+$('genre').onchange=e=>{state.genre=e.target.value;applyGenreDefaults(false);renderRunStyles();renderHookOpts();renderAll();$('panel3').classList.remove('collapsed');};
 $('flowRand').onclick=genFlow;
 $('introStyle').onchange=e=>{state.introStyle=e.target.value;updateLenTag();};   // 픽업(+1)·싱잉볼(+2) 등 길이 반영 즉시 갱신
 $('endStyle').onchange=e=>{state.endStyle=e.target.value;updateLenTag();
@@ -2689,7 +2687,7 @@ $('hybrid').onchange=e=>{state.hybrid=e.target.value;
 $('groove').onchange=e=>{state.groove=e.target.value;const nm={straight:'정직하게',mpc:'MPC 스윙',dilla:'딜라 드렁큰',human:'휴먼'}[e.target.value]||e.target.value;flashMsg('그루브 필 — '+nm+'. 재생하면 타이밍·다이내믹에 반영돼요');};
 $('secCrash').onchange=e=>{state.secCrash=e.target.checked;flashMsg(e.target.checked?'구간 시작 크래쉬 켜짐 — 각 구간 다운비트에 크래시':'구간 시작 크래쉬 꺼짐');};
 /* 완성곡 랜덤 — 장르는 사용자의 의도이므로 유지, 나머지는 음악 규칙 안에서 전부 랜덤 */
-$('fullRand').onclick=()=>{
+function generateSong(fullRandom){
   const g=curGenre();
   // 컨셉: 스타일·키·템포·스윙
   if(g.id==='running'){const ks=Object.keys(RUNSTYLES);state.runStyle=ks[Math.floor(Math.random()*ks.length)];}
@@ -2697,14 +2695,16 @@ $('fullRand').onclick=()=>{
   $('bpm').value=base;$('bpmOut').textContent=base;
   const sw=g.swing?Math.max(0,Math.min(100,g.swing+Math.round(Math.random()*20-10))):(Math.random()<0.2?Math.round(Math.random()*25):0);
   $('swing').value=sw;$('swingOut').textContent=sw;
-  // 구조 (목표 시간 최우선)
+  // 구조 (목표 시간 최우선) — BPM을 위에서 확정했으니 rebuildTimed가 그 BPM으로 마디를 짜 시간이 정확
   state.seed=((Math.random()*1e9)|0)||1;
   if(state.targetSec)rebuildTimed();
   else{applyGenreDefaults(true,{keepTempo:true});
     state.sections=timedSections(MIN_SONG_SEC+Math.random()*70).map(([t,b])=>newSection(t,b));harmonizeFlow();}
-  // 키: 구조 생성 뒤 확정하고 코드 재롤 (러닝은 D 선호 60%)
-  const kv=(g.id==='running'&&Math.random()<0.6)?2:Math.floor(Math.random()*12);
-  $('key').value=kv;prevKeyPc=kv;
+  // 키: 전부 랜덤일 때만 새로 뽑음. 설정 반영 모드는 사용자가 고른 키 유지
+  if(fullRandom){
+    const kv=(g.id==='running'&&Math.random()<0.6)?2:Math.floor(Math.random()*12);
+    $('key').value=kv;prevKeyPc=kv;
+  }
   state.sections.forEach(sec=>{sec.chords=randomProgRoman(g).map(t=>romanToSym(t,keyPc()));});
   // 템포: 기본은 완성곡답게 '고정' — '템포 변화 포함' 체크 시에만 워밍·변속·전환(직각/곡선) 랜덤
   const N=state.sections.length;
@@ -2721,16 +2721,20 @@ $('fullRand').onclick=()=>{
     if(N>=5&&Math.random()<0.5){const mids=state.sections.filter((sec,i)=>i>0&&i<N-1&&STYPES[sec.type].energy<=3);
       if(mids.length){const m=mids[Math.floor(Math.random()*mids.length)];m.tempo=Math.round(base*(Math.random()<0.5?0.96:1.04));}}
   } else state.sections.forEach(sec=>{sec.tempo='inherit';sec.rampNext=false;});   // 기본: 템포 고정
-  // 시작/엔딩 디자인도 랜덤 (실제 곡 성향으로 가중)
-  state.introStyle=pick(['stack','stack','stack','pickup','pickup','impact','fadein','direct']);
-  state.endStyle=pick(['finale','finale','finaleBoom','finaleBoom','fade','handoff']);
-  $('introStyle').value=state.introStyle;$('endStyle').value=state.endStyle;
+  // 시작/엔딩 디자인: 전부 랜덤일 때만 무작위. 설정 반영 모드는 사용자가 고른 값 유지
+  if(fullRandom){
+    state.introStyle=pick(['stack','stack','stack','pickup','pickup','impact','fadein','direct']);
+    state.endStyle=pick(['finale','finale','finaleBoom','finaleBoom','fade','handoff']);
+    $('introStyle').value=state.introStyle;$('endStyle').value=state.endStyle;
+  }
   // 아르페지오: 고에너지 일부 구간에
   state.sections.forEach(sec=>{if(STYPES[sec.type].energy>=5&&Math.random()<0.4){
     sec.arp=true;sec.arpPat=pick(['up','down','updown','random']);sec.arpRate=Math.random()<0.5?8:16;}});
   assignBeatSwitch();                                          // 비트 스위치 지점 반영(설정된 경우)
   renderAll();$('panel3').classList.remove('collapsed');
-  flashMsg('완성곡 생성 ✓ — 스타일·키·템포·구조·전환·아르페지오까지 랜덤. 재생해 보고 별로면 또 누르세요.');};
+  flashMsg(fullRandom?'🎰 전부 랜덤 생성 ✓ — 스타일·키·템포·시작/엔딩까지 무작위.':'🎲 새 곡 생성 ✓ — 설정을 반영했어요. 재생해 보고 별로면 또 누르세요.');}
+$('gen').onclick=()=>generateSong(false);          // 설정 반영
+$('fullRand').onclick=()=>generateSong(true);      // 전부 랜덤
 $('curvePreset').onclick=()=>{if(state.sections.length<2){flashMsg('구간이 2개 이상 필요해요.');return;}
   const base=+$('bpm').value,first=state.sections[0],last=state.sections[state.sections.length-1];
   first.tempo=Math.round(base*0.87);first.rampNext=true;            // 워밍: -13%에서 S자 가속
@@ -2834,6 +2838,7 @@ function applyTgt(quiet){const m=+($('tgtMin').value||0),sc=+($('tgtSecIn').valu
 $('fitTime').onclick=()=>applyTgt();
 $('tgtMin').onchange=()=>applyTgt(true);   // 입력만 해도 즉시 반영 (적용 버튼 없이 재생해도 그 시간)
 $('tgtSecIn').onchange=()=>applyTgt(true);
+window.__setTgtG=()=>{const gm=+(document.getElementById('gTgtM').value||0),gs=+(document.getElementById('gTgtS').value||0);window.__setTgt(gm*60+gs);};  // 가이드 분:초 → 01 패널과 동일 상태
 window.__setTgt=s=>{if(s==null){$('clearTime').onclick();return;}$('tgtMin').value=Math.floor(s/60);$('tgtSecIn').value=s%60;applyTgt();};
 $('clearTime').onclick=()=>{state.targetSec=null;$('tgtMin').value='';$('tgtSecIn').value='';updateLenTag();flashMsg('시간 목표 해제 — 현재 구조는 유지돼요.');};
 $('rndChords').onclick=()=>{state.sections.forEach(s=>s.chords=randomProgRoman(curGenre()).map(t=>romanToSym(t,keyPc())));harmonizeFlow();renderEditor();};
@@ -2848,9 +2853,9 @@ function doReset(){stop();state.genre='running';$('genre').value='running';$('ke
   ['drums','bass','chords','pad','lead','fx'].forEach(k=>{if(BUS[k])BUS[k].gain.value=state.enabled[k]?1:0;document.querySelector(`.ichip[data-k="${k}"]`)?.classList.toggle('on',state.enabled[k]);});
   state.targetSec=null;if($('tgtMin'))$('tgtMin').value='';if($('tgtSecIn'))$('tgtSecIn').value='';
   applyGenreDefaults(false);renderAll();
-  $('panel1').classList.remove('collapsed');['panelGen','panel3','panel4','panel5'].forEach(p=>$(p)&&$(p).classList.add('collapsed'));
+  $('panel1').classList.remove('collapsed');['panel3','panel4','panel5'].forEach(p=>$(p)&&$(p).classList.add('collapsed'));
   flashMsg('전체 초기화 완료 ✓');}
-$('reset').onclick=doReset;
+$('reset')&&($('reset').onclick=doReset);
 $('resetTop')&&($('resetTop').onclick=doReset);
 // timedBar는 01 패널 상단(분위기 재료 위) 고정 — 시간 먼저, 그다음 재료
 /* ═══════════ 인앱 가이드 — 스타일별 추천 + 원클릭 조합 적용 ═══════════ */
@@ -3049,7 +3054,8 @@ function renderGuide(){
   liveCombos=styleCombos(gid,sub,4);
   if(liveCombos.length){
     html+='<div class="g-sec" style="padding:8px 0 2px;"><span style="font-size:12px;color:#8fa3b8;">⏱ 시간 먼저 정하고 조합을 누르세요: </span>'
-    +[['150','2:30'],['210','3:30'],['300','5:00'],['','해제']].map(([s,l])=>'<button class="sm" onclick="window.__setTgt('+(s||'null')+')" style="margin:0 3px;">'+l+'</button>').join('')+'</div>';
+    +[['150','2:30'],['210','3:30'],['300','5:00'],['','해제']].map(([s,l])=>'<button class="sm" onclick="window.__setTgt('+(s||'null')+')" style="margin:0 3px;">'+l+'</button>').join('')
+    +' <span style="white-space:nowrap;"><input id="gTgtM" type="number" min="0" max="180" placeholder="분" style="width:48px;"> : <input id="gTgtS" type="number" min="0" max="59" placeholder="초" style="width:48px;"> <button class="sm primary" onclick="window.__setTgtG()">적용</button></span></div>';
   html+='<div class="g-sec"><h3 class="reroll-h">이 스타일 추천 조합 <button class="reroll" data-reroll="1" title="다른 조합 보기">🔄 다른 조합</button></h3>'+
       liveCombos.map(c=>recipeCardHTML(c,true)).join('')+'</div>';
   }
