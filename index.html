@@ -190,16 +190,18 @@ button,select,.achip,.st,.seg,.ptoggle,.chk{touch-action:manipulation;}
 .g-now .tip{color:#C2C9D6;font-size:14px;margin:0 0 4px;line-height:1.6}
 .g-sec{margin:22px 0}
 .g-sec>h3{font-size:13px;color:var(--acc);letter-spacing:.06em;text-transform:uppercase;margin:0 0 12px;border-bottom:1px solid var(--line);padding-bottom:7px}
-.g-strip{border:1px solid var(--line);border-radius:12px;padding:13px 16px;margin-bottom:10px;background:var(--card)}
+.g-strip{border:1px solid var(--line);border-radius:12px;padding:9px 13px;margin-bottom:8px;background:var(--card)}
+.g-subwrap{}
+@media(min-width:640px){.g-subwrap{column-count:2;column-gap:20px}.g-sub{break-inside:avoid}}
 .g-strip .st-h{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}
 .g-strip .st-h b{font-size:16px;color:var(--text)}
 .g-strip .st-h .tl{font-size:12px;color:var(--muted)}
 .g-strip .st-h .bpm{margin-left:auto;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
 .g-strip .blurb{font-size:13.5px;color:#AEB6C4;margin:0 0 8px;line-height:1.55}
-.g-sub{font-size:13.5px;color:#C2C9D6;padding:6px 0;border-top:1px solid var(--line);line-height:1.55}
+.g-sub{font-size:12.5px;color:#C2C9D6;padding:4px 0;border-top:1px solid var(--line);line-height:1.45}
 .g-sub b{color:var(--acc)}
 .g-sub .sb{font-size:11.5px;color:var(--muted)}
-.g-sub .st{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
+.g-sub .st{display:inline;color:var(--muted);font-size:11.5px;margin-left:5px}
 .recipe-card{border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-bottom:10px;background:var(--card)}
 .recipe-card.match{border-color:var(--acc-dim);background:linear-gradient(180deg,rgba(70,224,200,.06),var(--card))}
 .recipe-card h4{margin:0 0 5px;font-size:15.5px;color:var(--text)}
@@ -245,6 +247,20 @@ button,select,.achip,.st,.seg,.ptoggle,.chk{touch-action:manipulation;}
         <input type="number" id="bpm" min="30" max="260" value="120" inputmode="numeric" step="1"><output id="bpmOut" style="display:none;">120</output></div>
       <div class="field"><label>스윙 <output id="swingOut" class="mini">0</output> <span class="mini" style="color:var(--muted);font-weight:400;">· 자동</span></label><div class="rw"><input type="range" id="swing" min="0" max="100" value="0"></div></div>
       <div class="field"><label>&nbsp;</label><button id="resetTop" style="width:100%;white-space:nowrap;">↺ 전체 초기화</button></div>
+    </div>
+    <div id="timedBar" style="display:flex;flex-wrap:nowrap;align-items:center;gap:8px;margin:0 0 12px;padding:10px 12px;border:1px solid var(--line,#333);border-radius:10px;overflow-x:auto;">
+      <span style="font-weight:600;white-space:nowrap;">⏱ 목표 시간</span>
+      <input id="tgtMin" type="number" min="0" max="180" placeholder="분" style="width:56px;"> :
+      <input id="tgtSecIn" type="number" min="0" max="59" placeholder="초" style="width:56px;">
+      <button class="sm primary" id="fitTime">적용</button>
+      <button class="sm" id="clearTime">해제</button>
+      <span class="mini" id="lenTag" style="white-space:nowrap;"></span>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px;">
+      <button class="primary" id="gen">🎲 비트생성</button>
+      <button id="flowRand">🔀 구조 랜덤</button>
+      <button id="curvePreset">⛰ 워밍→쿨 곡선</button>
+      <button id="rndChords">🎲 코드 랜덤</button>
     </div>
     <div class="submini" style="margin:16px 0 7px;">분위기 재료 <span class="mini" style="color:var(--muted);font-weight:400;">— 켜두면 구간마다 적용</span></div>
     <div class="atmos atmos-compact" id="atmosPal"></div>
@@ -297,10 +313,6 @@ button,select,.achip,.st,.seg,.ptoggle,.chk{touch-action:manipulation;}
           <option value="human">휴먼</option>
         </select></span>
       <label class="mini" style="display:inline-flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="secCrash"> 구간 시작 크래쉬</label>
-      <button class="primary" id="gen">🎲 비트생성</button>
-      <button id="flowRand">🔀 구조 랜덤</button>
-      <button id="curvePreset">⛰ 워밍→쿨 곡선</button>
-      <button id="rndChords">🎲 코드 랜덤</button>
     </div>
     </div>
   </div>
@@ -309,14 +321,6 @@ button,select,.achip,.st,.seg,.ptoggle,.chk{touch-action:manipulation;}
     <div class="plabel ptoggle"><span class="n">03</span> 다듬기 — 구간별 구조·비트·전환 <span class="chev">▾</span></div>
     <div class="pbody">
     <p class="tip" style="margin:0 0 12px;">흐름(리본)에서 구간을 탭해 그 구간의 비트·코드·분위기를 편집해요.</p>
-    <div id="timedBar" style="display:flex;flex-wrap:nowrap;align-items:center;gap:8px;margin:0 0 12px;padding:10px 12px;border:1px solid var(--line,#333);border-radius:10px;overflow-x:auto;">
-      <span style="font-weight:600;white-space:nowrap;">⏱ 목표 시간</span>
-      <input id="tgtMin" type="number" min="0" max="180" placeholder="분" style="width:56px;"> :
-      <input id="tgtSecIn" type="number" min="0" max="59" placeholder="초" style="width:56px;">
-      <button class="sm primary" id="fitTime">적용</button>
-      <button class="sm" id="clearTime">해제</button>
-      <span class="mini" id="lenTag" style="white-space:nowrap;"></span>
-    </div>
 
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
       <span class="mini" style="font-weight:700;color:var(--text);">흐름</span>
@@ -2823,10 +2827,14 @@ function renderHookOpts(){const box=$('hookOpts'),on=state.genre==='hooksong';
     mkChip(cr,v,state.hookCycle===v,l,()=>{if(state.hookCycle===v)return;state.hookCycle=v;
       const prog=randomProgRoman(curGenre()).map(t=>romanToSym(t,keyPc()));state.sections.forEach(sec=>sec.chords=prog.slice());
       renderHookOpts();renderAll();flashMsg(v+'코드 순환으로 바꿨어요');}));}
-$('fitTime').onclick=()=>{const m=+($('tgtMin').value||0),sc=+($('tgtSecIn').value||0),t=m*60+sc;
-  if(t<10){flashMsg('10초 이상으로 설정해 주세요.');return;}
-  state.targetSec=t;rebuildTimed();renderAll();$('panel3').classList.remove('collapsed');
-  flashMsg('구조를 '+Math.floor(t/60)+'분 '+(t%60)+'초에 맞췄어요 ✓');};
+function applyTgt(quiet){const m=+($('tgtMin').value||0),sc=+($('tgtSecIn').value||0),t=m*60+sc;
+  if(t<10){if(!quiet)flashMsg('10초 이상으로 설정해 주세요.');return;}
+  state.targetSec=t;rebuildTimed();renderAll();
+  flashMsg('구조를 '+Math.floor(t/60)+'분 '+(t%60)+'초에 맞췄어요 ✓ — 재생·MIDI에 바로 반영');}
+$('fitTime').onclick=()=>applyTgt();
+$('tgtMin').onchange=()=>applyTgt(true);   // 입력만 해도 즉시 반영 (적용 버튼 없이 재생해도 그 시간)
+$('tgtSecIn').onchange=()=>applyTgt(true);
+window.__setTgt=s=>{if(s==null){$('clearTime').onclick();return;}$('tgtMin').value=Math.floor(s/60);$('tgtSecIn').value=s%60;applyTgt();};
 $('clearTime').onclick=()=>{state.targetSec=null;$('tgtMin').value='';$('tgtSecIn').value='';updateLenTag();flashMsg('시간 목표 해제 — 현재 구조는 유지돼요.');};
 $('rndChords').onclick=()=>{state.sections.forEach(s=>s.chords=randomProgRoman(curGenre()).map(t=>romanToSym(t,keyPc())));harmonizeFlow();renderEditor();};
 $('addSec').onclick=()=>{state.sections.push(newSection('Hook',8));state.active=state.sections.length-1;renderEditor();updateRibbon();};
@@ -2844,7 +2852,7 @@ function doReset(){stop();state.genre='running';$('genre').value='running';$('ke
   flashMsg('전체 초기화 완료 ✓');}
 $('reset').onclick=doReset;
 $('resetTop')&&($('resetTop').onclick=doReset);
-$('timedBarSlot').appendChild($('timedBar'));   // 목표 시간은 '생성' 단계 소속
+// timedBar는 01 패널 상단(분위기 재료 위) 고정 — 시간 먼저, 그다음 재료
 /* ═══════════ 인앱 가이드 — 스타일별 추천 + 원클릭 조합 적용 ═══════════ */
 const GUIDE={
   order:['running','edm','global','trap','lofi','boombap','song'],
@@ -3040,7 +3048,9 @@ function renderGuide(){
   // 이 스타일 추천 조합 — 자동 생성(여러 개) + 새로고침
   liveCombos=styleCombos(gid,sub,4);
   if(liveCombos.length){
-    html+='<div class="g-sec"><h3 class="reroll-h">이 스타일 추천 조합 <button class="reroll" data-reroll="1" title="다른 조합 보기">🔄 다른 조합</button></h3>'+
+    html+='<div class="g-sec" style="padding:8px 0 2px;"><span style="font-size:12px;color:#8fa3b8;">⏱ 시간 먼저 정하고 조합을 누르세요: </span>'
+    +[['150','2:30'],['210','3:30'],['300','5:00'],['','해제']].map(([s,l])=>'<button class="sm" onclick="window.__setTgt('+(s||'null')+')" style="margin:0 3px;">'+l+'</button>').join('')+'</div>';
+  html+='<div class="g-sec"><h3 class="reroll-h">이 스타일 추천 조합 <button class="reroll" data-reroll="1" title="다른 조합 보기">🔄 다른 조합</button></h3>'+
       liveCombos.map(c=>recipeCardHTML(c,true)).join('')+'</div>';
   }
   // ── 장르별 채널 ──
@@ -3048,7 +3058,7 @@ function renderGuide(){
   GUIDE.order.forEach(k=>{const g=GUIDE.genres[k];
     html+='<div class="g-strip"><div class="st-h"><b>'+g.name+'</b><span class="tl">'+g.tag+'</span><span class="bpm">'+g.bpm+' BPM</span></div>'+
       '<p class="blurb">'+g.blurb+'</p>'+
-      g.subs.map(s=>'<div class="g-sub"><b>'+s.name+'</b> <span class="sb">'+(s.bpm||'')+'</span> — '+s.desc+(s.tip?'<span class="st">↳ '+s.tip+'</span>':'')+'</div>').join('')+
+      '<div class="g-subwrap">'+g.subs.map(s=>'<div class="g-sub"><b>'+s.name+'</b> <span class="sb">'+(s.bpm||'')+'</span> — '+s.desc+(s.tip?'<span class="st">↳ '+s.tip+'</span>':'')+'</div>').join('')+'</div>'+
       '</div>';});
   html+='</div>';
   // ── 전체 레시피 ──
@@ -3062,7 +3072,7 @@ document.addEventListener('click',function(e){
   const t=e.target,d=t.dataset||{};
   if(d.reroll!=null){renderGuide();return;}                       // 새로고침 — 다른 조합 다시 뽑기
   if(d.apply){const pool=d.apply.indexOf('live')===0?liveCombos:GUIDE.recipes;const r=pool.find(x=>x.id===d.apply);
-    if(r){applyRecipe(r);closeGuide();
+    if(r){applyRecipe(r);if(state.targetSec){rebuildTimed();renderAll();}closeGuide();  // 조합을 적용해도 목표 시간 구조 유지
     flashMsg('✓ 「'+r.name+'」 적용 — 작곡 완료. ▶ 전체 재생을 눌러보세요');
     try{if(typeof play==='function')play();}catch(_){}}return;}
   if(d.close!=null&&(t.id==='guideOverlay'||(t.closest&&t.closest('#guideOverlay'))))closeGuide();
