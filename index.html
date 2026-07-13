@@ -45,6 +45,9 @@
   button:hover{border-color:var(--acc);color:var(--acc);}
   button.primary{background:var(--acc);border-color:var(--acc);color:#06201c;font-weight:500;}
   button.primary:hover{filter:brightness(1.08);color:#06201c;}
+  #play.is-stop{background:#e5484d;border-color:#e5484d;color:#fff;}
+  #play.is-stop:hover{filter:brightness(1.08);color:#fff;}
+  #play.is-stop .dot{background:#fff;}
   button.sm{padding:5px 10px;font-size:12px;}
   button.icon{padding:5px 8px;line-height:1;font-family:"JetBrains Mono",monospace;}
   button.icon.on{background:var(--acc);border-color:var(--acc);color:#06201c;}
@@ -151,7 +154,7 @@ button,select,.achip,.st,.seg,.ptoggle,.chk{touch-action:manipulation;}
   input[type=range]::-webkit-slider-thumb{width:26px;height:26px;}
   input[type=range]::-moz-range-thumb{width:24px;height:24px;}
   .transport{padding:13px 16px calc(13px + env(safe-area-inset-bottom));gap:11px;}
-  #play,#stop{min-height:50px;min-width:76px;font-size:16px;}
+  #play,#exMidi{min-height:50px;min-width:76px;font-size:16px;}
   .tip{font-size:13.5px;line-height:1.55;}
 }
 
@@ -363,7 +366,7 @@ button,select,.achip,.st,.seg,.ptoggle,.chk{touch-action:manipulation;}
 
   <div class="transport" id="transport">
     <button class="primary" id="play"><span class="dot"></span>전체 재생</button>
-    <button id="stop" disabled>정지</button>
+    <button id="exMidi">♪ 미디 추출</button>
     <div class="insts" id="insts"></div>
     <span class="meta" id="posWrap" style="display:none;">⏱ <b id="posTag">0:00</b> / <span id="totTag">0:00</span></span>
     <span class="meta">길이 <b id="lenTag">—</b></span>
@@ -905,7 +908,9 @@ function shapeDrumsFor(g,type,vix){
   else if(en===2){off('snare');off('clap');off('ohat');off('perc');    // 인트로: 킥 확립
     if(run)off('hat');else d.hat=P(0,4,8,12);}
   else if(en===3){off('clap');}                                        // 벌스: 클랩 아낌
-  else if(en===4){off('clap');off('ohat');d.hat=P(...Array.from({length:16},(_,i)=>i));} // 빌드: 햇 16분 밀도
+  else if(en===4){off('clap');off('ohat');
+    if(g.id==='melodichouse')d.hat=P(2,6,10,14);                       // 멜로딕 하우스 빌드: 햇 폭증 없이 롤링 오프비트 유지(심플·연속)
+    else d.hat=P(...Array.from({length:16},(_,i)=>i));} // 빌드: 햇 16분 밀도
   if(run&&en>=3){const st=RUNSTYLES[state.runStyle]||RUNSTYLES.fresh;
     if(st.backbeat){d.snare=d.snare.map((v,i)=>v||i===4||i===12);d.clap=Array(16).fill(false);} // 락: 백비트 2·4
     if(st.name==='synth'&&en>=5)d.ohat=d.ohat.map((v,i)=>v||i===2||i===6||i===10||i===14);} // 뒷박 오픈햇
@@ -1137,6 +1142,7 @@ function timedSections(targetSec){
                  : (total>720?4:total>240?2:1);      // 장거리(LSD 60~90분)는 프레이즈 배율
   const out=[];
   let intro=Math.max(2,Math.min(4*k,Math.round(total*0.07)));
+  if(g.id==='melodichouse')intro=Math.min(8,Math.max(4,Math.round(total*0.10)));   // 하우스: 긴 인트로(쌓아올릴 공간)
   let outro=Math.max(2,Math.min(4*k,Math.round(total*0.07)));
   if(total-intro-outro<4){intro=Math.max(1,Math.floor((total-2)/2));outro=Math.max(1,Math.floor((total-intro)/3));}
   let rem=total-intro-outro;
@@ -1192,8 +1198,9 @@ function quantizePhrases(list,total,hookT){
   const outroI=q.map(s=>s[0]).lastIndexOf('Outro');
   const introI=q.findIndex(s=>s[0]==='Intro');
   const tailMin=2, tailIdx=[outroI,introI].filter(i=>i>=0);
+  const introMin=(g.id==='melodichouse')?8:tailMin;                          // 하우스: 긴 인트로 유지(빌드업 공간)
   // 2) 꼬리 기본값 확보 후, 목표와의 차이를 '사이클 단위'로만 본문 마지막 훅에 배분
-  tailIdx.forEach(i=>{ q[i][1]=tailMin; });
+  tailIdx.forEach(i=>{ q[i][1]=(q[i][0]==='Intro')?introMin:tailMin; });
   const curSum=()=>q.reduce((a,[,b])=>a+b,0);
   let diff=total-curSum();                              // 남은 마디(양수=더 필요)
   const cycAdj=Math.trunc(diff/cyc)*cyc;                // 사이클 단위만 본문으로
@@ -1990,8 +1997,17 @@ function arrange(){
       const bigFill=nextEn>en;                                        // 에너지 상승(훅·드롭 직전)이면 화려, 아니면 가벼운 필
       const drNow=sec.switch?applyBeatSwitch(sec.drums,sec,g):sec.drums;  // 비트 스위치: 스위치 구간은 바뀐 패턴 사용
       const mhBreak=(g.id==='melodichouse'&&sec.type==='Break');       // 멜로딕 하우스 브레이크다운 = 앰비언트: 킥·클랩·스네어 빼고 드론·패드가 이끔
+      // ── 멜로딕 하우스 인트로 빌드업: 처음부터 꽉 채우지 않고 한 겹씩 쌓는다(드론·피아노 → 킥 → 풀) ──
+      const mhIntro=(g.id==='melodichouse'&&sec.type==='Intro');
+      let mhNoDrums=false, mhKickOnly=false;
+      if(mhIntro){ const half=sec.bars/2;
+        if(bar<half) mhNoDrums=true;                          // 인트로 전반: 드럼 전부 빠짐(드론·피아노·패드만 = 여백)
+        else mhKickOnly=(bar<sec.bars-2);                     // 인트로 후반: 킥만(마지막 2마디에 나머지 합류)
+      }
       // drums — 박 위치 액센트 + 에너지 스케일 + 시드 지터
       LANES.forEach(lane=>{drNow[lane].forEach((on,s16)=>{if(!on)return;if(thin&&lane!=='kick')return;
+        if(mhNoDrums)return;                                               // 인트로 전반: 드럼 전부 없음
+        if(mhKickOnly&&lane!=='kick')return;                              // 인트로 후반: 킥만
         if(mhBreak&&(lane==='kick'||lane==='clap'||lane==='snare'))return;  // 브레이크다운: 저역 드럼 제거(공간 열기)
         if(mhBreak&&lane==='hat')return;                                   // 클로즈햇도 제거 — 완전한 앰비언트 공간
         if(mhBreak&&lane==='ohat'&&s16%8!==6)return;                       // 오픈햇은 2마디에 한 번만(아주 성글게)
@@ -2124,7 +2140,7 @@ function arrange(){
           const isDrop=en>=5;
           if(isDrop)base+=0;                                                        // 드롭은 옥타브 반짝을 더 크게(아래 octShift)
           const seq=tri.map(iv=>base+(iv-ch.notes[0])); seq.push(seq[1]+12);         // 근·3·5·옥타브3 = 4스텝(넓은 도약감)
-          const rate=(en>=4)?16:8, dq=4/rate, per=cb*rate;                          // 벌스 8분 → 훅/드롭 16분
+          const rate=8, dq=4/rate, per=cb*rate;                                     // 멜로딕 하우스: 8분 오프비트 플럭 유지(밀도 폭증 없이 쭉 이어지게)
           const globalBar=Math.round((b0-introHeadQ())/4);                          // 2마디 LFO 위상
           for(let k=0;k<per && en>=2;k++){ const rq=k*dq;                            // 플럭은 en>=2 (브레이크다운에선 피아노·드론만)
             if(rate===8&&k%2===0)continue;                                          // 8분 모드: 오프비트만(엇박 플럭)
@@ -2268,6 +2284,13 @@ function arrange(){
       tr.drone.push({t:sv.startQ,dur:sv.endQ-sv.startQ,midi:root,vel});
       tr.drone.push({t:sv.startQ,dur:sv.endQ-sv.startQ,midi:root+7,vel:Math.round(vel*0.7)});  // 완전5도(빈 5도 = 공허·앰비언트)
     });
+    // 인트로 빌드업: 인트로 구간의 베이스·플럭을 걷어내 처음을 비운다(드론·피아노·패드만 남김)
+    const introSec=state.sections[0];
+    if(introSec&&introSec.type==='Intro'){
+      const iStart=sview[0].startQ, iHalf=iStart+(introSec.bars*4)/2, iEnd=sview[0].endQ;
+      tr.arpseq=tr.arpseq.filter(n=>n.t<iStart||n.t>=iEnd);                    // 플럭은 인트로 내내 빼기(가장 복잡한 요소)
+      tr.bass=tr.bass.filter(n=>n.t<iStart||n.t>=iHalf);                      // 베이스는 인트로 후반부터 등장(전반 제거)
+    }
   }
   // ===== 구간별 빌드 단계 마스크 — 지정 단계 위의 레이어를 제거(넣고 뺐다 다시 쌓기). 풀 구간을 깎아 빌드 완성 =====
   state.sections.forEach((sc,i)=>{if(sc.buildStage==null)return;const bs=+sc.buildStage;if(bs>=6)return;
@@ -2714,7 +2737,7 @@ function scheduleWindow(t0,winS,winE,fxFrom){fxFrom=fxFrom==null?winS:fxFrom;
     else if(curKit==='kpop')supersaw('chords',at(n.t),ds(n),n.midi,n.vel,{voices:4,detune:9,lpf:2700,atk:0.006,rel:0.12,lvl:0.23,q:0.7}); // 브라스 스탭
     else if(curKit==='hooksong')supersaw('chords',at(n.t),ds(n),n.midi,n.vel,state.hookMode==='calm'?{voices:2,detune:2,lpf:2600,atk:0.005,rel:0.5,lvl:0.18,q:0.5,wave:'triangle'}:{voices:2,detune:4,lpf:3600,atk:0.003,rel:0.2,lvl:0.2,q:0.5,wave:'triangle'});
     else rhodes(at(n.t),ds(n),n.midi,n.vel);});
-  sched(MODEL.tracks.pad,n=>supersaw('pad',at(n.t),ds(n),n.midi,n.vel,run?{voices:rSt.pad.voices,detune:rSt.pad.detune,lpf:rSt.pad.lpf,hpf:rSt.pad.hpf,shimmer:rSt.pad.shimmer,wave:rSt.pad.wave,atk:0.1,rel:0.4,lvl:0.26,q:0.6}:curKit==='melodichouse'?{voices:4,detune:11,lpf:2000,hpf:200,atk:0.7,rel:1.4,lvl:0.2,q:0.5,wave:'sawtooth'}:{voices:curKit==='edm'?6:4,detune:curKit==='edm'?14:8,lpf:1700,atk:0.1,rel:0.4,lvl:0.26,q:0.6}));  // 멜로딕하우스: 절제된 아날로그 패드(넓게 채우지 않고 은은하게)
+  sched(MODEL.tracks.pad,n=>supersaw('pad',at(n.t),ds(n),n.midi,n.vel,run?{voices:rSt.pad.voices,detune:rSt.pad.detune,lpf:rSt.pad.lpf,hpf:rSt.pad.hpf,shimmer:rSt.pad.shimmer,wave:rSt.pad.wave,atk:0.1,rel:0.4,lvl:0.26,q:0.6}:curKit==='melodichouse'?{voices:4,detune:9,lpf:1700,hpf:180,atk:1.0,rel:1.8,lvl:0.19,q:0.4,wave:'sawtooth'}:{voices:curKit==='edm'?6:4,detune:curKit==='edm'?14:8,lpf:1700,atk:0.1,rel:0.4,lvl:0.26,q:0.6}));  // 멜로딕하우스: 부드러운 아날로그 패드(어택 느리게·필터 따뜻하게)
   sched(MODEL.tracks.lead,n=>{
     supersaw('lead',at(n.t),ds(n),n.midi,n.vel,
     run?{voices:rSt.lead.voices,detune:rSt.lead.detune,lpf:rSt.lead.lpf,hpf:rSt.lead.hpf,shimmer:rSt.lead.shimmer,wave:rSt.lead.wave,atk:0.005,rel:0.12,lvl:0.3,q:0.8}
@@ -2733,8 +2756,8 @@ function scheduleWindow(t0,winS,winE,fxFrom){fxFrom=fxFrom==null?winS:fxFrom;
   sched(MODEL.tracks.piano||[],n=>piano(at(n.t),ds(n),n.midi,n.vel));  // 그랜드 피아노 모티프 (멜로딕 하우스)
   sched(MODEL.tracks.drone||[],n=>supersaw('pad',at(n.t),ds(n),n.midi,n.vel,{voices:3,detune:8,lpf:600,hpf:30,atk:2.0,rel:2.5,lvl:0.2,q:0.4,wave:'sawtooth'}));  // 앰비언트 드론: 낮고 어두운 지속 페달(느린 스웰)
   sched(MODEL.tracks.arpseq||[],n=>{
-    if(curKit==='melodichouse'){const cut=1400+((n.lfo!=null?n.lfo:0.5)*4200);   // LFO로 컷오프 스윕(닫힘 1.4k → 열림 5.6k) = 시그니처 무빙 플럭
-      supersaw('lead',at(n.t),ds(n),n.midi,n.vel,{voices:3,detune:12,lpf:cut,hpf:220,atk:0.004,rel:0.14,lvl:0.15,q:1.4,wave:'sawtooth'});}
+    if(curKit==='melodichouse'){const cut=1200+((n.lfo!=null?n.lfo:0.5)*2800);   // LFO 컷오프 스윕 완화(1.2k→4.0k) = 덜 날카롭게
+      supersaw('lead',at(n.t),ds(n),n.midi,n.vel,{voices:3,detune:10,lpf:cut,hpf:180,atk:0.016,rel:0.24,lvl:0.13,q:0.85,wave:'sawtooth'});}   // 어택 부드럽게·릴리즈 길게·레조넌스 낮춰 순화
     else supersaw('lead',at(n.t),ds(n),n.midi,n.vel,{voices:2,detune:9,lpf:5400,hpf:400,atk:0.002,rel:0.06,lvl:0.14,q:0.8,wave:'square'});});
   sched(MODEL.tracks.gtr||[],n=>supersaw('chords',at(n.t),ds(n),n.midi,n.vel,{voices:2,detune:8,lpf:2600,atk:0.002,rel:0.12,lvl:0.15,q:0.8,wave:'sawtooth'}));   // Hook-Pop 리듬기타 파워코드
   sched(MODEL.tracks.str||[],n=>supersaw('pad',at(n.t),ds(n),n.midi,n.vel,{voices:4,detune:6,lpf:2400,hpf:200,atk:0.15,rel:0.6,lvl:0.13,q:0.5,wave:'triangle'}));   // Hook-Pop 스트링 스웰
@@ -2770,7 +2793,7 @@ function playWin(winS,winE,loop){
     scheduleWindow(t0,LOOPST.bounds[0][0],LOOPST.bounds[0][1],winS);
     armChunkTimer();
   } else scheduleWindow(t0,winS,winE);
-  $('transport').classList.add('playing');$('play').disabled=true;$('stop').disabled=false;
+  $('transport').classList.add('playing');$('play').classList.add('is-stop');$('play').innerHTML='<span class="dot"></span>정지';
   hi(winS);armLoopTimer();
 }
 let CHUNKT=null;
@@ -2799,6 +2822,7 @@ function armLoopTimer(){
 }
 function secBpmAtQ(q){const s=(MODEL.tempoMap||MODEL.sections).find(s=>q>=s.startQ&&q<s.endQ);return s?s.bpm:MODEL.bpm;}
 const play=()=>{arrange();playWin(0,MODEL.totalQ,false);};
+function togglePlay(){ if($('transport').classList.contains('playing')) stop(); else play(); }   // 전체재생↔정지 토글
 function playSection(i){arrange();const r=MODEL.sections[i];
   const endQ=(i===MODEL.sections.length-1)?MODEL.totalQ:r.endQ;   // 마지막 구간은 엔딩 테일(부머·싱잉볼 여운)까지 들리게
   playWin(r.startQ,endQ,state.loop);}
@@ -2824,7 +2848,7 @@ function stop(silent){if(stopT){clearTimeout(stopT);stopT=null;}if(CHUNKT){clear
   if(raf)cancelAnimationFrame(raf);document.querySelectorAll('.scard,.seg').forEach(el=>el.classList.remove('now'));
   document.querySelectorAll('.st.play').forEach(c=>c.classList.remove('play'));
   const head=$('rbHead');if(head)head.style.display='none';$('posWrap').style.display='none';
-  if(!silent){$('transport').classList.remove('playing');$('play').disabled=false;$('stop').disabled=true;}}
+  if(!silent){$('transport').classList.remove('playing');$('play').classList.remove('is-stop');$('play').innerHTML='<span class="dot"></span>전체 재생';}}
 
 /* ===== MIDI ===== */
 function vlq(n){let b=n&0x7F,o=[];while(n>>=7){b<<=8;b|=((n&0x7F)|0x80);}while(1){o.push(b&0xFF);if(b&0x80)b>>=8;else break;}return o;}
@@ -3926,7 +3950,7 @@ document.addEventListener('click',function(e){
     try{if(typeof play==='function')play();}catch(_){}}return;}
   if(d.close!=null&&(t.id==='guideOverlay'||(t.closest&&t.closest('#guideOverlay'))))closeGuide();
 });
-$('play').onclick=play;$('stop').onclick=()=>stop();
+$('play').onclick=togglePlay;$('exMidi').onclick=exportAll;
 $('exAll').onclick=exportAll;document.querySelectorAll('[data-inst]').forEach(b=>b.onclick=()=>exportOne(b.dataset.inst));
 $('saveLocal').onclick=saveLocal;$('loadLocal').onclick=loadLocal;$('exJson').onclick=exportJSON;
 $('imJson').onchange=e=>{if(e.target.files[0])importJSON(e.target.files[0]);e.target.value='';};
