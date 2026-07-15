@@ -3190,6 +3190,31 @@ function padCC(){const PPQ_STEPS=8,cc=[];
   MODEL.sections.forEach(s=>{if(!STYPES[s.type]||!STYPES[s.type].build)return;
     const len=s.endQ-s.startQ;for(let k=0;k<=PPQ_STEPS;k++)cc.push({t:s.startQ+len*k/PPQ_STEPS,cc:74,val:Math.round(40+70*k/PPQ_STEPS)});});
   return cc;}
+/* 피아노 서스테인 페달 → CC64. 레가토 페달링: 코드 경계 직전에 페달을 떼어 이전 화성의 잔향을 끊고,
+   새 화음이 울린 직후 다시 밟는다. (화성이 바뀌는데 계속 밟고 있으면 소리가 뭉개짐)
+   피아노 음이 실제로 있는 코드 구간에만 페달을 걸고, 곡 끝에서 반드시 뗀다. */
+function pianoCC(){
+  const notes=MODEL.tracks.piano||[]; if(!notes.length)return [];
+  const UP=0.03, DOWN=0.08;                                     // 뗌: 경계 0.03박 전 · 밟음: 화음 뒤 0.08박
+  const bounds=[];                                              // 코드 경계 목록(구간별 chordBars 반영)
+  (MODEL.sections||[]).forEach((sv,i)=>{
+    const src=state.sections[i]; if(!src)return;
+    const cb=src.chordBars||1, bars=src.bars||4;
+    for(let bar=0;bar<bars;bar+=cb)bounds.push(sv.startQ+bar*4);
+  });
+  if(!bounds.length)return [];
+  bounds.sort((a,b)=>a-b);
+  const lastEnd=notes.reduce((m,n)=>Math.max(m,n.t+(n.dur||0.25)),0);
+  const cc=[];
+  bounds.forEach((t,i)=>{
+    const next=bounds[i+1]!=null?bounds[i+1]:lastEnd;
+    if(!notes.some(n=>n.t>=t-0.01&&n.t<next-0.01))return;        // 그 코드 구간에 피아노 음이 있을 때만
+    if(t>UP)cc.push({t:t-UP,cc:64,val:0});                       // 페달 뗌(경계 직전 — 잔향 정리)
+    cc.push({t:t+DOWN,cc:64,val:127});                           // 새 화음 뒤 다시 밟음
+  });
+  cc.push({t:lastEnd+0.1,cc:64,val:0});                          // 곡 끝: 페달 뗌
+  return cc.sort((a,b)=>a.t-b.t);
+}
 /* 베이스 그루브 — 시드 기반으로 리듬형 베이스에 고스트 노트(낮은 벨로시티·짧은 어택 앞꾸밈)를 삽입.
    지속형(롱노트) 베이스는 건드리지 않음. 미디로도 그대로 실림. */
 /* Hook-Pop 물리 레이어 — 코드 진행에서 리듬기타(파워코드)·스트링 스웰을 별도 트랙으로 생성(hookpop 전용). */
@@ -3766,6 +3791,8 @@ function buildSongSheet(){
   L.push('');
   L.push('─── 참고 (NOTES) ───');
   L.push('  ※ 빌드업 패드엔 CC74(필터 열림) 오토메이션이 이미 기록됨 — CC74에 반응하는 악기라야 실제로 열립니다.');
+  if(MODEL.tracks.piano&&MODEL.tracks.piano.length)
+    L.push('  ※ 피아노 트랙엔 CC64(서스테인 페달)가 기록됨 — 코드 경계 직전에 떼고 새 화음 뒤 다시 밟는 레가토 페달링. Studio Piano 등 CC64를 받는 음원이면 그대로 울립니다.');
   L.push('  ※ 위 수치는 절대값이 아니라 귀로 맞추기 전 출발점 — 곡에 맞게 조정하세요.');
   L.push('  ※ MIDI 앞뒤 4마디 편집 여백 포함 — 구간 위치는 마커 기준.');
   L.push('  ※ 조성·템포·마커는 글로벌 트랙에 포함. 음원 이름은 각 트랙 InstrumentName 메타(FF04)에도 기록됨.');
@@ -4083,8 +4110,8 @@ function exportAll(){arrange();EXPORT_PADQ=16;const P=gmProgs(),RN=recNames(),LP
     tr.push(noteTrack(MODEL.tracks.drone,8,89,false,drName,null,drIN)); }      // GM 89 = Pad 2 (warm)
   if(MODEL.tracks.piano&&MODEL.tracks.piano.length){          // 그랜드 피아노 모티프 (멜로딕 하우스)
     const pName='[Studio Piano] 그랜드 피아노 모티프 — '+feelFor('piano')+'  |  추천: Studio Piano(펠트/소프트) 또는 라이브러리 Piano  ||ALT: Vintage Electric Piano (Rhodes)';
-    const pIN='느낌: '+feelFor('piano')+' | 그랜드 피아노 | 주법: 노래하는 멜로디 모티프(16마디 발전) | GM: '+gmName(0);
-    tr.push(noteTrack(MODEL.tracks.piano,9,0,false,pName,null,pIN)); }         // GM 0 = Acoustic Grand Piano
+    const pIN='느낌: '+feelFor('piano')+' | 그랜드 피아노 | 주법: 노래하는 멜로디 모티프(16마디 발전) · 서스테인 페달(CC64) 레가토 페달링 | GM: '+gmName(0);
+    tr.push(noteTrack(MODEL.tracks.piano,10,0,false,pName,pianoCC(),pIN)); }   // GM 0 = Acoustic Grand Piano · CC64 서스테인 페달 (ch10 — ch9는 GM 드럼 전용이라 충돌 회피)
   fxCueTracks().forEach(t=>tr.push(t));                        // 효과별 [FX] 가이드 트랙 (로직에 이름으로 보임)
   guideTracks().forEach(t=>tr.push(t));                        // 2026 오가닉 트렌드 가이드 트랙
   const stem=`beat_${state.genre==='running'?'running-'+state.runStyle:state.genre}_${MODEL.bpm}bpm`;
