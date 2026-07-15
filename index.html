@@ -445,8 +445,8 @@ const PAT={
   kpop:{kick:P(0,4,8,12),snare:P(4,12),clap:P(4,12),hat:P(0,2,4,6,8,10,12,14),ohat:P(6,14),perc:P()},
   retro:{kick:P(0,7,8),snare:P(4,12),clap:P(),hat:P(0,2,4,6,8,10,12,14),ohat:P(14),perc:P()}, // 80s: 킥 당김(2박 뒤), 게이트 스네어 백비트
   hookpop:{kick:P(0,4,8,12),snare:P(4,12),clap:P(4,12),hat:P(0,2,4,6,8,10,12,14),ohat:P(),perc:P()}, // APT식 파워팝: 4플로어 킥 + 백비트 스네어·박수 + 직진 8분
-  melodichouse:{kick:P(0,4,8,12),snare:P(),clap:P(4,12),hat:P(2,6,10,14),ohat:P(6,14),perc:P(3,7,11,15)}, // 멜로딕 하우스: 딥 4플로어 킥 · 부드러운 클랩 2·4박 · 롤링 클로즈햇 오프비트 · 오픈햇 리프트(6·14) · 16분 셰이커
-  deephouse:{kick:P(0,4,8,12),snare:P(),clap:P(4,12),hat:P(2,6,10,14),ohat:P(6,14),perc:P(3,7,11,15)} // 딥하우스: 둥근 4플로어 · 소프트 클랩 · 섬세한 셰이커(멜로딕하우스와 동일 골격, 더 부드럽게)
+  melodichouse:{kick:P(0,4,8,12),snare:P(),clap:P(4,12),hat:P(2,6,10,14),ohat:P(6,14),perc:P(7,15)}, // 멜로딕 하우스: 딥 4플로어 킥 · 부드러운 클랩 2·4박 · 롤링 클로즈햇 오프비트 · 오픈햇 리프트(6·14) · 셰이커는 2·4박 뒤 16분만(매 박 직전에 깔면 킥과 0.25박 차로 부딪혀 밀리는 느낌)
+  deephouse:{kick:P(0,4,8,12),snare:P(),clap:P(4,12),hat:P(2,6,10,14),ohat:P(6,14),perc:P(7,15)} // 딥하우스: 둥근 4플로어 · 소프트 클랩 · 섬세한 셰이커(2·4박 뒤 16분 — 킥 직전 충돌 회피)
 };
 const GENRES=[
  {id:'running',name:'러닝 (Running)',tempo:[150,182],swing:0,pad:true,lead:true,bass:'synth',form:'running', defaultSec:195,
@@ -1235,7 +1235,7 @@ function shapeDrumsFor(g,type,vix){
       d.hat=P(2,6,10,14);d.ohat=P(2,6,10,14);d.perc&&(d.perc=P(7,15));}
     else if(ms==='progressive'){                                   // 프로그레시브: 4플로어 · 롤링 오프비트 · 빌드용 밀도(꽉 채우지 않고 숨쉬게)
       d.kick=P(0,4,8,12);d.snare=off('snare')||P();d.clap=P(4,12);
-      d.hat=(en>=4)?P(0,2,3,4,6,8,10,11,12,14):P(2,6,10,14);d.ohat=P(6,14);d.perc&&(d.perc=P(3,7,11,15));}
+      d.hat=(en>=4)?P(0,2,3,4,6,8,10,11,12,14):P(2,6,10,14);d.ohat=P(6,14);d.perc&&(d.perc=P(7,15));}
     else if(ms==='ambient'){                                       // 앰비언트: 드럼 최소 · 킥 부드럽게 · 여백
       d.kick=(en>=4)?P(0,4,8,12):P(0,8);d.snare=off('snare')||P();d.clap=off('clap')||P();
       d.hat=P(2,6,10,14);d.ohat=off('ohat')||P();d.perc&&(d.perc=P(7,15));}
@@ -2772,6 +2772,7 @@ function arrange(){
     });
   }
   grooveBass(tr.bass);                                                // 베이스 고스트 노트 삽입(그루브)
+  dedupDrums(tr);                                                     // 드럼 중복 노트 제거(같은 자리 겹침 = 플램·위상 간섭으로 박자가 어긋나 들림)
   MODEL={tracks:tr,sections:sview,tempoMap:tm.segs,totalQ:tm.totalQ,totalSec:tm.totalSec,bpm:+$('bpm').value};
   sview.forEach(s=>{s.startSec=qToSec(s.startQ);});
   buildHookpopLayers();                                               // Hook-Pop: 기타·스트링 물리 레이어 생성
@@ -3077,6 +3078,22 @@ function fxPlay(ev,t0,base){
 }
 let LOOPST=null;
 /* 한 재생 윈도우의 모든 이벤트를 절대시각 t0 기준으로 스케줄 */
+/* 드럼 중복 노트 제거 — 기본 패턴과 필인이 같은 자리에 겹쳐 찍히면(예: 기본 perc 3.75 + rimfill 3.75)
+   같은 소리가 두 번 나 플램·위상 간섭이 생기고 "박자가 안 맞는" 느낌을 준다. 같은 시각(1/64박 이내)이면 센 것만 남긴다. */
+function dedupDrums(tr){
+  [...LANES,'crash'].forEach(l=>{
+    const a=tr[l]; if(!a||a.length<2)return;
+    a.sort((x,y)=>x.t-y.t);
+    const out=[];
+    for(const n of a){
+      const prev=out[out.length-1];
+      if(prev&&Math.abs(n.t-prev.t)<0.015){                            // 1/64박 이내 = 같은 자리로 간주
+        if((n.vel||0)>(prev.vel||0))out[out.length-1]=n;               // 센 쪽만 남김
+      } else out.push(n);
+    }
+    tr[l]=out;
+  });
+}
 function scheduleWindow(t0,winS,winE,fxFrom){fxFrom=fxFrom==null?winS:fxFrom;
   const base=qToSec(winS);
   const at=q=>t0+(qToSec(q)-base),ds=n=>Math.max(0.05,qToSec(n.t+(n.dur||0.25))-qToSec(n.t));
