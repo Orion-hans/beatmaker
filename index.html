@@ -2375,7 +2375,7 @@ function pushFill(tr,b0,o){
   if(id==='straight16'){const n=Math.round(flen/0.25);for(let k=0;k<n;k++)tr.snare.push({t:S+k*0.25,vel:V(56,116,k/(n-1))});}
   else if(id==='accel32'){for(let k=0;k<4;k++)tr.snare.push({t:S+k*0.25,vel:V(60,96,k/6)});
     for(let k=0;k<8;k++)tr.snare.push({t:S+1+k*0.125,vel:V(90,122,k/7)});}                    // 16분→32분 가속
-  else if(id==='triplet'){const n=compound?9:12;for(let k=0;k<n;k++)tr.snare.push({t:S+k*(flen/n),vel:V(58,118,k/(n-1))});} // 트리플렛 롤
+  else if(id==='triplet'){const n=compound?Math.round(flen/0.25):12;for(let k=0;k<n;k++)tr.snare.push({t:S+k*(flen/n),vel:V(58,118,k/(n-1))});} // 트리플렛 롤 — 복합박자는 이미 3연 계열이므로 그 격자(0.25)로 나눈다
   else if(id==='hatroll'){const n=Math.round(flen/0.125);for(let k=0;k<n;k++)tr.hat.push({t:S+k*0.125,vel:V(40,98,k/(n-1))});
     [0.5,1,1.5,1.75].forEach((p,i)=>{if(p<flen)tr.snare.push({t:S+p,vel:V(72,116,i/3)});});}   // 하이햇 롤 + 스네어 악센트
   else if(id==='breakbeat'){[0,3,6].forEach(s=>tr.kick.push({t:S+s*0.25,vel:V(84,104,s/7)}));
@@ -2394,7 +2394,7 @@ function pushFill(tr,b0,o){
   else if(id==='kicksync'){[END-1.25,END-0.75].forEach((t,i)=>tr.kick.push({t,vel:V(88,106,i)}));                  // 킥 당김 2연 → 스네어 킥오프
     tr.snare.push({t:END-0.5,vel:V(88,112,1)});tr.hat.push({t:END-0.25,vel:V(48,68,0.5)});}
   // ── 새 화려한 필들 ──
-  else if(id==='tomTumble'){const st=compound?(flen/6):0.25;const seq=[0,2,4,3,5,7];              // 톰 하행 텀블(중→저)
+  else if(id==='tomTumble'){const st=0.25;const seq=[0,2,4,3,5,7];                                // 톰 하행 텀블(중→저) — 모든 박자에서 격자는 0.25
     seq.forEach((ps,k)=>tom(S+k*st,ps,k/(seq.length-1)));
     tr.snare.push({t:END-0.25,vel:V(96,120,1)});}
   else if(id==='tomCascade'){const st=0.125;let k=0;                                             // 톰 캐스케이드(빠른 하행 연타 + 킥·크래시 착지) — 32분 간격(격자 정렬)
@@ -2414,7 +2414,7 @@ function pushFill(tr,b0,o){
     tr.snare.push({t:END-0.25,vel:V(92,118,1)});}
   else if(id==='ghostRoll'){const n=Math.round(flen/0.25);                                        // 고스트 롤(여린 16분 → 마지막만 강)
     for(let k=0;k<n;k++)tr.snare.push({t:S+k*0.25,vel:k===n-1?V(88,110,1):V(24,46,k/n)});}
-  else if(id==='rimShuffle'){const st=compound?(flen/6):0.25;                                     // 림 셔플(퍼커시브 3연 그루브)
+  else if(id==='rimShuffle'){const st=0.25;                                                       // 림 셔플(퍼커시브 3연 그루브)
     [0,2,3,5].forEach((s,i)=>tr.perc.push({t:S+s*st,vel:V(52,88,i/3)}));
     tr.snare.push({t:END-0.25,vel:V(74,100,0.9)});}
 }
@@ -2986,6 +2986,7 @@ function arrange(){
   }
   applyBassArtic(tr.bass);                                            // 장르 주법대로 음 길이·강약 다듬기(고스트 자리 확보)
   grooveBass(tr.bass);                                                // 베이스 고스트 노트 삽입(그루브)
+  applyDrumArtic(tr,sview);                                           // 장르 드럼 주법 — 스네어 고스트·벨로시티 폭
   dedupDrums(tr);                                                     // 드럼 중복 노트 제거(같은 자리 겹침 = 플램·위상 간섭으로 박자가 어긋나 들림)
   fixHarmonyClashes(tr,sview);                                        // 리드·베이스가 코드와 정면충돌하는 음을 코드톤으로 보정
   dedupMelodic(tr);                                                   // 멜로디 트랙 같은 음 중복·물림 정리(스턱 노트 방지)
@@ -3295,6 +3296,76 @@ function fxPlay(ev,t0,base){
 }
 let LOOPST=null;
 /* 한 재생 윈도우의 모든 이벤트를 절대시각 t0 기준으로 스케줄 */
+/* ===== 장르별 드럼 주법 — 드러머의 손맛을 MIDI에 반영 =====
+   하이햇 악센트(정박 세게·뒷박 여리게)와 킥 다운비트 강조는 이미 들어가 있었지만,
+   펑크·붐뱁 드러밍의 핵심인 '스네어 고스트 노트'가 사실상 없었다(붐뱁 1.4%·시티팝 0.5%).
+   고스트는 백비트 사이 16분 자리를 아주 여리게 스치는 죽은음으로, 그루브의 밀도를 만든다.
+     ghost : 고스트 빈도 0~2 (0=쓰지 않음 — 머신 계열)
+     dyn   : 벨로시티 폭 배율. 어쿠스틱 연주는 넓고, 프로그래밍된 머신 드럼은 고르다 */
+const DRUM_ARTIC={
+  boombap:     {ghost:2.0,dyn:1.20},   // 붐뱁 — 고스트가 그루브의 골격
+  retro:       {ghost:2.0,dyn:1.15},   // 시티팝 펑크 드러밍 — 고스트·악센트 대비
+  lofi:        {ghost:1.5,dyn:1.00},   // 먼지낀 여린 고스트
+  global:      {ghost:1.5,dyn:1.10},   // 퍼커시브 그루브
+  country:     {ghost:0.8,dyn:1.10},   // 브러시·림 뉘앙스 — 절제된 고스트
+  hooksong:    {ghost:1.0,dyn:0.95},
+  hookpop:     {ghost:0.75,dyn:0.90},
+  running:     {ghost:0.35,dyn:0.80},  // 드라이빙 — 일정한 추진(고스트 최소)
+  kpop:        {ghost:0.35,dyn:0.70},  // 타이트한 프로덕션
+  trap:        {ghost:0.0,dyn:0.60},   // 하이햇 롤 중심, 스네어는 단발
+  edm:         {ghost:0.0,dyn:0.50},   // 머신
+  melodichouse:{ghost:0.0,dyn:0.50},
+  deephouse:   {ghost:0.0,dyn:0.50}
+};
+function drumArtic(){
+  const g=state.genre, a=DRUM_ARTIC[g]||{ghost:1,dyn:1};
+  if(g==='lofi'&&state.lofiStyle==='sleepy')return {ghost:0.6,dyn:0.8};   // 잠들 듯 — 최소한만
+  if(g==='global'&&state.globalStyle==='amapiano')return {ghost:2.0,dyn:1.15};
+  if(g==='trap'&&state.trapStyle==='drill')return {ghost:0.6,dyn:0.7};    // 드릴은 스네어 사이 여린 점이 있다
+  return a;
+}
+function applyDrumArtic(tr,sview){
+  const A=drumArtic(); if(!tr.snare)return;
+  const rng=mul32(((state.seed>>>0)^0x2545F491)>>>0||1), chance=p=>rng()<p;
+  // ── 벨로시티 폭: 각 레인 평균을 축으로 넓히거나 좁힌다(머신 vs 손) ──
+  // 하이햇·오픈햇은 제외 — 정박 세게/뒷박 여리게의 악센트 구조가 이미 그루브의 핵심이라 누르면 평평해진다
+  ['kick','snare','clap','perc'].forEach(l=>{
+    const a=tr[l]; if(!a||a.length<4||A.dyn===1)return;
+    const m=a.reduce((x,n)=>x+n.vel,0)/a.length;
+    a.forEach(n=>{ if(n.ghost)return;
+      n.vel=Math.max(12,Math.min(124,Math.round(m+(n.vel-m)*A.dyn))); });
+  });
+  if(!A.ghost)return;
+  // ── 스네어 고스트 삽입 ──
+  const add=[];
+  (sview||[]).forEach((sv,si)=>{
+    const src=state.sections[si]; if(!src)return;
+    const en=(STYPES[src.type]||{}).energy||3;
+    if(en<=1)return;                                             // 브레이크·아웃트로는 비워둔다
+    const BQ=barQ(src), step=BQ/((src.steps||16));
+    const eScale=[0,0.78,0.85,0.92,0.97,1][en]||1;
+    for(let bar=0;bar*BQ<sv.endQ-sv.startQ-0.001;bar++){
+      const b0=sv.startQ+bar*BQ;
+      // 이 마디에 이미 무엇이 찍혀 있나(16분 격자 기준)
+      const busy=new Set();
+      ['kick','snare','clap','perc'].forEach(l=>(tr[l]||[]).forEach(n=>{
+        if(n.t<b0-0.05||n.t>=b0+BQ)return;
+        busy.add(Math.round((n.t-b0)/step));
+      }));
+      const nStep=Math.round(BQ/step);
+      for(let s=0;s<nStep;s++){
+        if(s%2===0)continue;                                     // 고스트는 16분 뒷자리(e·a)에만
+        if(busy.has(s))continue;                                 // 이미 뭔가 치는 자리는 피함
+        const nearBack=busy.has(s+1)||busy.has(s-1);             // 백비트 바로 앞뒤가 고스트 명당
+        const p=(nearBack?0.20:0.05)*A.ghost;    // 실제 드러머도 고스트를 백비트 앞뒤에 몰아 친다 — 그 외 자리는 드물게
+        if(!chance(p))continue;
+        const t=b0+s*step+grooveOffset('snare',s,rng);
+        add.push({t,vel:Math.max(14,Math.round((20+rng()*16)*eScale)),ghost:true});
+      }
+    }
+  });
+  if(add.length)tr.snare=tr.snare.concat(add).sort((a,b)=>a.t-b.t);
+}
 /* 드럼 중복 노트 제거 — 기본 패턴과 필인이 같은 자리에 겹쳐 찍히면(예: 기본 perc 3.75 + rimfill 3.75)
    같은 소리가 두 번 나 플램·위상 간섭이 생기고 "박자가 안 맞는" 느낌을 준다. 같은 시각(1/64박 이내)이면 센 것만 남긴다. */
 function dedupDrums(tr){
@@ -4243,6 +4314,12 @@ function buildSongSheet(){
         L.push('     ※ 퍼커션(37)은 GM에서 Side Stick(림 클릭) 자리입니다. 이 곡에서는 '+pu+' 용도이므로,');
         L.push('       Drum Machine Designer에서 37번 패드를 클릭해 원하는 '+pu+' 음색으로 교체하세요.');
         L.push('       (GM 정식 번호는 탬버린 54 · 셰이커 82이지만 16패드 킷에는 그 자리가 비어 있어 소리가 나지 않습니다.)');
+      }
+      { const D=drumArtic(), gh=(MODEL.tracks.snare||[]).filter(n=>n.ghost).length;
+        const bars=state.sections.reduce((a,x)=>a+x.bars,0)||1;
+        L.push('     ※ 드럼 주법: '+(D.ghost?('스네어 고스트 노트 '+gh+'개(마디당 '+(gh/bars).toFixed(1)+'개) — 백비트 앞뒤 16분 자리를 벨로시티 18~36으로 여리게 스칩니다.'):'고스트 노트 없음(머신 드럼 문법).')
+          +' 벨로시티 폭 '+(D.dyn>1?'넓게(어쿠스틱 손맛)':D.dyn<1?'고르게(프로그래밍된 타이트함)':'표준')+'.');
+        if(D.ghost)L.push('       고스트가 안 들리면 드럼 음원의 벨로시티 감도를 올리거나, 스네어 채널에서 낮은 벨로시티 레이어가 켜져 있는지 확인하세요.');
       }
       if(MODEL.tracks.perc&&MODEL.tracks.perc.some(n=>n.tomPitch!=null)){
         L.push('     ※ 화려한 필(톰 캐스케이드·텀블)에서 톰 음(GM 41·43·45·47·48·50 = Floor~High Tom)이 쓰입니다.');
